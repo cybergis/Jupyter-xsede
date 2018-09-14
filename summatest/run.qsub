@@ -1,0 +1,13 @@
+#!/bin/bash
+#SBATCH --job-name=Test
+#SBATCH --nodes=1
+#SBATCH -t 1:00:00
+#SBATCH --output=/home/xuliuiuc/summatest/Test.stdout
+#SBATCH -e /home/xuliuiuc/summatest/Test.stderr
+
+module load singularity
+
+for i in `seq 1 5`
+do
+singularity exec summa.simg ./runSummaTest.sh $i
+done

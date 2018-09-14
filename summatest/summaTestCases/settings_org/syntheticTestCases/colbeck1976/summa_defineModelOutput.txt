@@ -1,0 +1,11 @@
+! ---------
+! model variables
+! ---------
+scalarRainfall         | 1
+scalarSnowfall         | 1
+scalarRainPlusMelt     | 1
+mLayerVolFracLiq       | 1
+mLayerVolFracIce       | 1
+iLayerNrgFlux          | 1
+iLayerHeight           | 1
+mLayerDepth            | 1
