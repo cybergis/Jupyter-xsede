@@ -393,7 +393,7 @@ class Job():
         
 	def downloadFile(localPath, remotePath, filename):
             if not os.path.exists(localPath):
-		os.mknod(localPath + filename)
+		os.makedirs(localPath)
 	    self.__sftp.get(remotePath, localPath+filename)#, lambda a,b : print(a,b) )
 
 	def recursive_download(localPath, remotePath):
@@ -434,7 +434,7 @@ class Job():
           #      out_file_path = filesSelector.getPath()
 
         #    logger.info(out_file_path)
-            test = summaVis("/data/hsjupyter/a/"+ USERNAME + "/output/"+ self.jobName+ "/ouput1/syntheticTestCases/colbeck1976/colbeck1976-exp1_1990-01-01-00_spinup_testSumma_1.nccolbeck1976-exp1_1990-01-01-00_spinup_testSumma_1.nc")
+            test = summaVis("output/"+ self.jobName+ "/ouput1/syntheticTestCases/colbeck1976/colbeck1976-exp1_1990-01-01-00_spinup_testSumma_1.nccolbeck1976-exp1_1990-01-01-00_spinup_testSumma_1.nc")
             test.attrPlot('scalarRainPlusMelt')
             self.__client.exec_command("rm -r " + self.remoteSummaDir)
             switchMode()
