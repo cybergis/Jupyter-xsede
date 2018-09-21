@@ -17,6 +17,6 @@ Run `python3 setup.py install` to install the `cyebrgis` python library.
 
 ## Usage
 
-A basic example usage of this library is shown below:
+A basic example usage of this library is shown below (using the example notebook in the repo):
 
 ![](Usage.jpg)
