@@ -13,7 +13,7 @@ Besides, an account on Comet with corresponding allocation is needed to sign-in 
 
 ## Install
 
-Run `python3 setup.py install` to install the `cyebrgis` python library.
+Run `python setup.py install` to install the `cyebrgis` python library.
 
 ## Usage
 
