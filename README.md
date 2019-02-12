@@ -9,6 +9,8 @@ The principle here is to use [Singularity](https://singularity.lbl.gov/) to pull
 
 The folder `summatest/` contains the customized test data of SUMMA. The singularity image is not included in the repo due to its size. So to prepare the library, it is required to build the SUMMA singularity image from Dokcer hub using `singularity pull docker://bartnijssen/summa summa.img` in the `summatest/` folder.
 
+Similarly, the folder `taudemtest/` contains the customized test data of TauDEM. It is required to build the Taudem singularity image from Dokcer hub using `singularity pull docker://wkmor1/docker-taudem taudem.simg` in the `taudemtest/` folder.
+
 Besides, an account on Comet with corresponding allocation is needed to sign-in and complete the computation.
 
 ## Install
@@ -17,6 +19,16 @@ Run `python setup.py install` to install the `cyebrgis` python library.
 
 ## Usage
 
-A basic example usage of this library is shown below (using the example notebook in the repo):
+There is a [webpage](https://hsjupyter.cigi.illinois.edu:8000/hub/login) people can easily get access to the Jupyter notebook that has been built.
 
-![](Usage.jpg)
+1. A basic example usage of this library is shown below (using the example notebook in the repo):
+
+![](image/Usage.jpg)
+
+2. Summa test example
+
+![](image/summa_usage.jpg)
+
+3. TauDEM test example
+
+![](image/Taudem_usage.jpg)
