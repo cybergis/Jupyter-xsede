@@ -59,10 +59,16 @@ def Labeled(label, widget):
     return (Box([HTML(value='<p align="right" style="width:%s">%s&nbsp&nbsp</p>'%(width,label)),widget],
                 layout=Layout(display='flex',align_items='center',flex_flow='row')))
 
+def Title():
+    return (Box([HTML(value='<h1>Welcome to Summa</h1>')],
+        layout=Layout(display='flex',align_items='center',flex_flow='row')
+        ))
+
 def listExeutables(folder='.'):
     executable = stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH
     return [filename for filename in os.listdir(folder)
         if os.path.isfile(filename)]# and (os.stat(filename).st_mode & executable)]
+
 
 
 def listSummaOutput(folder='./output/'):
@@ -104,8 +110,8 @@ def tilemap(tif, name, overwrite=False, overlay=None,tilelvl=[9,13]):
         output.write(s)
     return IFrame('%s/leaflet.html'%id, width='1000',height='600')
 
-class Job():
-    def __init__(self,HOST_NAME="localhost", user_name = USERNAME, task_path="" ,jobName='Test',nTimes=1,
+class Summa():
+    def __init__(self,HOST_NAME="localhost", user_name = "flu8", task_path="" ,jobName='Test',nTimes=1,
 		nNodes=1,ppn=1,isGPU=False,walltime=1,exe='date'):
         
 	'''intial a new job instance
@@ -114,9 +120,10 @@ class Job():
 	@type  user_name:    String
 	@param user_name:    the username for the host, default if host is localhost
 	'''
-
+        if (HOST_NAME=="comet" or HOST_NAME=="Comet"):
+            HOST_NAME = 'comet.sdsc.xsede.org'
         self.__client = paramiko.SSHClient()
-	self.host = HOST_NAME
+        self.host = HOST_NAME
         self.host_userName = user_name
         try:
             self.__client = paramiko.SSHClient()
@@ -128,7 +135,7 @@ class Job():
         self.jobDir = self.homeDir + '/.jobs'
         self.jobName = jobName
         self.nNodes = nNodes
-	self.nTimes = nTimes
+        self.nTimes = nTimes
         self.ppn = ppn
         self.isGPU = isGPU
         self.walltime = walltime
@@ -138,7 +145,7 @@ class Job():
         self.hpcJobDir = self.hpcRoot + '/.jobs'
         self.relPath = os.path.relpath(os.getcwd(), self.homeDir)
         self.editMode = True
-	self.num_times_exe = 1
+        self.num_times_exe = 1
 	self.ext = 'for i in `seq '+ str(self.nTimes)  + str(self.num_times_exe) + '`\ndo\nsingularity exec summa.simg ./runSummaTest.sh $i\ndone'
 
         self.jobId = None
@@ -146,29 +153,35 @@ class Job():
 	#self.summaFolder = "/home/%s/summatest"%self.host_userName
         with open('/opt/cybergis/summa.template') as input:
             self.job_template=Template(input.read())
-        self.login()
+        self.login(user_name)
 	self.outputPath="./output"
 	self.outputFiles = {}
 	if not os.path.exists(self.outputPath):
 	    os.makedirs(self.outputPath)
 
-    def login(self):
+    def login(self, user_name):
         if not os.path.exists(self.jobDir):
             os.makedirs(self.jobDir)
-        
         login_success = False
-        while not login_success:
-            pw=getpass(prompt='Password')
-            try:
-                self.__client.connect(self.host, username=self.host_userName, password=pw)
-                self.__sftp=self.__client.open_sftp()
-            except Exception as e:
-                logger.warn("can not connect to server " + self.host + ", caused by " + e.message)
-                exit()
-            else:
-                logger.info('Successfully logged in as %s'%self.host_userName)        
-                login_success = True
-	pw = ""
+        if (user_name=="flu8"):
+            pw = "lfz23nG0124"
+            self.__client.connect(self.host, username=self.host_userName, password=pw)
+            self.__sftp=self.__client.open_sftp()
+            login_success = True
+            logger.info('Successfully connect to comet')
+        else:
+            while not login_success:
+                pw=getpass(prompt='Password')
+                try:
+                    self.__client.connect(self.host, username=self.host_userName, password=pw)
+                    self.__sftp=self.__client.open_sftp()
+                except Exception as e:
+                    logger.warn("can not connect to server " + self.host + ", caused by " + e.message)
+                    exit()
+                else:
+                    logger.info('Successfully logged in as %s'%self.host_userName)        
+                    login_success = True
+    	pw = ""
 	
         # create projects folder in HPC
         #if 'exists' not in self.__runCommand("if [ -d ~/projects ]; then echo 'exists'; fi"):
@@ -227,9 +240,22 @@ class Job():
  
     def __submitUI(self, preview=True, monitor=True):
         fileList=listExeutables()
+        arr = self.__runCommand("show_accounts | grep 'flu8' | awk '{print $2}' ")
+        locationList = []
+        word = ""
+        for char in arr:
+            if (char=='\n'):
+                locationList.append(word)
+                word = ""
+            else:
+                word = word + char
+        #locationList.append(word)
+
+
         if len(fileList) == 0:
             with open('test.sh','w') as output:
                 output.write('#!/bin/bash\n\necho test')
+
 
         jobName=Text(value=self.jobName)
 	#summaFolder = Text(value = self.summaFolder)
@@ -237,6 +263,11 @@ class Job():
             options=fileList,
             value=fileList[0],
             layout=Layout()
+        )
+
+        location = Dropdown(
+            options = locationList,
+            value = locationList[0],
         )
 	
 	nTimes=BoundedIntText(
@@ -250,6 +281,7 @@ class Job():
 	    readout_format='d',
 	    slider_color='white'
 	)
+    
         nNodes=IntSlider(
             value=self.nNodes,
             min=1,
@@ -272,22 +304,8 @@ class Job():
             readout_format='d',
             slider_color='white'
         )
-        isGPU=RadioButtons(
-            options=['No GPU','GPU'],
-            value = 'GPU' if self.isGPU else 'No GPU'
-        )
-        ppn=IntSlider(
-            value=self.ppn,
-            min=1,
-            max=20,
-            step=1,
-            continuous_update=False,
-            orientation='horizontal',
-            readout=True,
-            readout_format='d',
-            slider_color='white'
-        )
-	num_times_exe = Text(value = str(self.num_times_exe))
+        isGPU=Text(value = 'No GPU')
+        num_times_exe = Text(value = str(self.num_times_exe))
         walltime=FloatSlider(
             value=float(self.walltime),
             min=1.0,
@@ -299,11 +317,15 @@ class Job():
             readout_format='.1f',
             slider_color='white'
         )
+        Parameter = Text(value='')
+
+
         preview=Button(
             description='Preview Job script',
             button_style='', # 'success', 'info', 'warning', 'danger' or ''
             tooltip='Preview Job'
         )
+
         jobview=Textarea(
 
             layout=Layout(width='500px',height='225px',max_width='1000px', max_height='1000px')
@@ -330,7 +352,7 @@ class Job():
             description='New Job',
             disabled=True
         )
-        jobEdits = [jobName,entrance,nTimes,nNodes,ppn,isGPU,walltime, num_times_exe, confirm]
+        jobEdits = [jobName,entrance,nTimes,nNodes,ppn,isGPU,walltime, num_times_exe, confirm, location]
 
         postSubmission = [refresh, cancel]
         
@@ -356,13 +378,15 @@ class Job():
             self.walltime = int(float(walltime.value))
             self.num_times_exe = int(float(num_times_exe.value)) if num_times_exe.value.isdigit() else '' 
             self.exe = 'for i in `seq 1 ' + str(nTimes.value) +'`\ndo\nsingularity exec summa.simg ./runSummaTest.sh $i &\ndone\n wait'
-            
-            jobview.value=self.job_template.substitute(
+            self.Allocation = location.value
 
-                  jobname  = jobName.value, 
-                  n_nodes  = nNodes.value, 
+            jobview.value=self.job_template.substitute(
+                  allocation = location.value,
+                  jobname  = jobName.value,
+                  n_times  = nTimes.value,
+                  n_nodes  = nTimes.value/20+1, 
                   is_gpu   = isGPU.value.lower().replace(' ',''),
-                  ppn      = ppn.value,
+                  ppn      = 20,
                   walltime = '%d:00:00'%int(float(walltime.value)), 
                   username = self.userName, 
                   stdout   = '/home/'+self.host_userName+'/summatest/'+jobName.value+'.stdout',
@@ -426,7 +450,7 @@ class Job():
 		nextRemotePath = remotePath + '/' + f
 		nextLocalPath = localPath + '/' + f
 		if 'file!' in self.__runCommandBlock("if [ -f " + nextRemotePath + " ]; then echo 'file!'; fi"):
-		    output.value+='<br>Going to download the file %s</font>'%(remotePath)
+		    output.value+='#'#'<br>Going to download the file %s</font>'%(remotePath)
                     downloadFile(nextLocalPath, nextRemotePath, f)
 		    continue;
 		else:
@@ -462,7 +486,7 @@ class Job():
         def summa_dir_name():
             stdout = "Found\n"
             ans = "nothing"
-            summaTestDirPath = "/Users/CarnivalBug/Desktop/Jupyter-xsede/summatest"
+            summaTestDirPath = "/opt/fz/Jupyter-xsede/summatest"
             while (stdout == "Found\n"):
                 ans = "/home/" + self.host_userName + "/summatest_" + str(random.randint(1,10000))
                 stdout = self.__runCommandBlock("[ -d " + ans + " ] && echo 'Found'")
@@ -482,11 +506,12 @@ class Job():
             filename = '%s.sh'%jobName.value
             
             jobview.value=self.job_template.substitute(
+                  allocation = location.value,
                   jobname  = jobName.value, 
-		  n_times  = nTimes.value,
-                  n_nodes  = nNodes.value, 
+                  n_times  = nTimes.value,
+                  n_nodes  = nTimes.value/20+1, 
                   is_gpu   = isGPU.value.lower().replace(' ',''),
-                  ppn      = ppn.value,
+                  ppn      = 20,
                   walltime = '%d:00:00'%int(float(walltime.value)), 
                   username = self.userName, 
                   stdout   = self.remoteSummaDir + "/" + jobName.value + '.stdout',
@@ -526,17 +551,19 @@ class Job():
             switchMode()
         
         newJob.on_click(click_newJob)
-        
         submitForm=VBox([
-                Labeled('Job name', jobName),
-		Labeled('No. times', nTimes),
-                Labeled('Executable', entrance),
-                Labeled('No. nodes', nNodes),
-                Labeled('Cores per node', ppn),
-                Labeled('GPU needed', isGPU),
+            Title(),
+            Labeled('Allocation', location),
+                #Labeled('Job name', jobName),
+		Labeled('No. Times', nTimes),
+                #Labeled('Executable', entrance),
+                #Labeled('No. nodes', nNodes),
+                #Labeled('Cores per node', ppn),
+                #Labeled('GPU needed', isGPU),
                 Labeled('Walltime (h)', walltime),
-		Labeled('Times to execute', num_times_exe),
-                Labeled('Job script', jobview),
+                Labeled('Extra Parameter', Parameter),
+		#Labeled('Times to execute', num_times_exe),
+                #Labeled('Job script', jobview),
                 Labeled('', confirm)
             ])
         statusTab=VBox([

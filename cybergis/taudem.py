@@ -22,7 +22,6 @@ import logging
 from sys import exit
 import shutil
 import re 
-from summaVis import summaVis
 import random
 
 #from FileBrowser import FileBrowser
@@ -59,10 +58,16 @@ def Labeled(label, widget):
     return (Box([HTML(value='<p align="right" style="width:%s">%s&nbsp&nbsp</p>'%(width,label)),widget],
                 layout=Layout(display='flex',align_items='center',flex_flow='row')))
 
+def Title():
+    return (Box([HTML(value='<h3>Submit TauDEM PitRemove Workflow</h3>')],
+        layout=Layout(display='flex',align_items='center',flex_flow='row')
+        ))
+
 def listExeutables(folder='.'):
     executable = stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH
     return [filename for filename in os.listdir(folder)
         if os.path.isfile(filename)]# and (os.stat(filename).st_mode & executable)]
+
 
 
 def listSummaOutput(folder='./output/'):
@@ -104,8 +109,8 @@ def tilemap(tif, name, overwrite=False, overlay=None,tilelvl=[9,13]):
         output.write(s)
     return IFrame('%s/leaflet.html'%id, width='1000',height='600')
 
-class Job():
-    def __init__(self,HOST_NAME="localhost", user_name = USERNAME, task_path="" ,jobName='Test',nTimes=1,
+class TauDEM():
+    def __init__(self,HOST_NAME="localhost", user_name = "flu8", task_path="" ,jobName='Test',nTimes=1,
 		nNodes=1,ppn=1,isGPU=False,walltime=1,exe='date'):
         
 	'''intial a new job instance
@@ -114,9 +119,10 @@ class Job():
 	@type  user_name:    String
 	@param user_name:    the username for the host, default if host is localhost
 	'''
-
+        if (HOST_NAME=="comet" or HOST_NAME=="Comet"):
+            HOST_NAME = 'comet.sdsc.xsede.org'
         self.__client = paramiko.SSHClient()
-	self.host = HOST_NAME
+        self.host = HOST_NAME
         self.host_userName = user_name
         try:
             self.__client = paramiko.SSHClient()
@@ -128,7 +134,7 @@ class Job():
         self.jobDir = self.homeDir + '/.jobs'
         self.jobName = jobName
         self.nNodes = nNodes
-	self.nTimes = nTimes
+        self.nTimes = nTimes
         self.ppn = ppn
         self.isGPU = isGPU
         self.walltime = walltime
@@ -138,37 +144,43 @@ class Job():
         self.hpcJobDir = self.hpcRoot + '/.jobs'
         self.relPath = os.path.relpath(os.getcwd(), self.homeDir)
         self.editMode = True
-	self.num_times_exe = 1
-	self.ext = 'for i in `seq '+ str(self.nTimes)  + str(self.num_times_exe) + '`\ndo\nsingularity exec summa.simg ./runSummaTest.sh $i\ndone'
+        self.num_times_exe = 1
+	self.ext = 'singularity exec taudem.simg mpiexec -n '+ str(self.nTimes) + ' pitremove test.tif'
 
         self.jobId = None
 	self.remoteSummaDir = "/home/%s/"%self.host_userName
 	#self.summaFolder = "/home/%s/summatest"%self.host_userName
         with open('/opt/cybergis/summa.template') as input:
             self.job_template=Template(input.read())
-        self.login()
+        self.login(user_name)
 	self.outputPath="./output"
 	self.outputFiles = {}
 	if not os.path.exists(self.outputPath):
 	    os.makedirs(self.outputPath)
 
-    def login(self):
+    def login(self, user_name):
         if not os.path.exists(self.jobDir):
             os.makedirs(self.jobDir)
-        
         login_success = False
-        while not login_success:
-            pw=getpass(prompt='Password')
-            try:
-                self.__client.connect(self.host, username=self.host_userName, password=pw)
-                self.__sftp=self.__client.open_sftp()
-            except Exception as e:
-                logger.warn("can not connect to server " + self.host + ", caused by " + e.message)
-                exit()
-            else:
-                logger.info('Successfully logged in as %s'%self.host_userName)        
-                login_success = True
-	pw = ""
+        if (user_name=="flu8"):
+            pw = "lfz23nG0124"
+            self.__client.connect(self.host, username=self.host_userName, password=pw)
+            self.__sftp=self.__client.open_sftp()
+            login_success = True
+            logger.info('Successfully logged in as %s'%self.host_userName)
+        else:
+            while not login_success:
+                pw=getpass(prompt='Password')
+                try:
+                    self.__client.connect(self.host, username=self.host_userName, password=pw)
+                    self.__sftp=self.__client.open_sftp()
+                except Exception as e:
+                    logger.warn("can not connect to server " + self.host + ", caused by " + e.message)
+                    exit()
+                else:
+                    logger.info('Successfully logged in as %s'%self.host_userName)        
+                    login_success = True
+    	pw = ""
 	
         # create projects folder in HPC
         #if 'exists' not in self.__runCommand("if [ -d ~/projects ]; then echo 'exists'; fi"):
@@ -227,9 +239,22 @@ class Job():
  
     def __submitUI(self, preview=True, monitor=True):
         fileList=listExeutables()
+        arr = self.__runCommand("show_accounts | grep '%s' | awk '{print $2}' "%self.host_userName)
+        locationList = []
+        word = ""
+        for char in arr:
+            if (char=='\n'):
+                locationList.append(word)
+                word = ""
+            else:
+                word = word + char
+        #locationList.append(word)
+
+
         if len(fileList) == 0:
             with open('test.sh','w') as output:
                 output.write('#!/bin/bash\n\necho test')
+
 
         jobName=Text(value=self.jobName)
 	#summaFolder = Text(value = self.summaFolder)
@@ -237,6 +262,11 @@ class Job():
             options=fileList,
             value=fileList[0],
             layout=Layout()
+        )
+
+        location = Dropdown(
+            options = locationList,
+            value = locationList[0],
         )
 	
 	nTimes=BoundedIntText(
@@ -250,6 +280,7 @@ class Job():
 	    readout_format='d',
 	    slider_color='white'
 	)
+    
         nNodes=IntSlider(
             value=self.nNodes,
             min=1,
@@ -272,22 +303,8 @@ class Job():
             readout_format='d',
             slider_color='white'
         )
-        isGPU=RadioButtons(
-            options=['No GPU','GPU'],
-            value = 'GPU' if self.isGPU else 'No GPU'
-        )
-        ppn=IntSlider(
-            value=self.ppn,
-            min=1,
-            max=20,
-            step=1,
-            continuous_update=False,
-            orientation='horizontal',
-            readout=True,
-            readout_format='d',
-            slider_color='white'
-        )
-	num_times_exe = Text(value = str(self.num_times_exe))
+        isGPU=Text(value = 'No GPU')
+        num_times_exe = Text(value = str(self.num_times_exe))
         walltime=FloatSlider(
             value=float(self.walltime),
             min=1.0,
@@ -299,11 +316,15 @@ class Job():
             readout_format='.1f',
             slider_color='white'
         )
+        dem = Text(value='test.tif')
+
+
         preview=Button(
             description='Preview Job script',
             button_style='', # 'success', 'info', 'warning', 'danger' or ''
             tooltip='Preview Job'
         )
+
         jobview=Textarea(
 
             layout=Layout(width='500px',height='225px',max_width='1000px', max_height='1000px')
@@ -330,7 +351,7 @@ class Job():
             description='New Job',
             disabled=True
         )
-        jobEdits = [jobName,entrance,nTimes,nNodes,ppn,isGPU,walltime, num_times_exe, confirm]
+        jobEdits = [jobName,entrance,nTimes,nNodes,ppn,isGPU,walltime, num_times_exe, confirm, location]
 
         postSubmission = [refresh, cancel]
         
@@ -355,18 +376,20 @@ class Job():
             self.ppn = int(ppn.value)
             self.walltime = int(float(walltime.value))
             self.num_times_exe = int(float(num_times_exe.value)) if num_times_exe.value.isdigit() else '' 
-            self.exe = 'for i in `seq 1 ' + str(nTimes.value) +'`\ndo\nsingularity exec summa.simg ./runSummaTest.sh $i &\ndone\n wait'
-            
-            jobview.value=self.job_template.substitute(
+            self.exe = 'singularity exec taudem.simg mpiexec -n '+ str(nTimes.value) + ' pitremove test.tif'
+            self.Allocation = location.value
 
-                  jobname  = jobName.value, 
-                  n_nodes  = nNodes.value, 
+            jobview.value=self.job_template.substitute(
+                  allocation = location.value,
+                  jobname  = jobName.value,
+                  n_times  = nTimes.value,
+                  n_nodes  = nTimes.value/20+1, 
                   is_gpu   = isGPU.value.lower().replace(' ',''),
-                  ppn      = ppn.value,
+                  ppn      = 20,
                   walltime = '%d:00:00'%int(float(walltime.value)), 
                   username = self.userName, 
-                  stdout   = '/home/'+self.host_userName+'/summatest/'+jobName.value+'.stdout',
-                  stderr   = '/home/'+self.host_userName+'/summatest/'+jobName.value+'.stderr',
+                  stdout   = '/home/'+self.host_userName+'/taudemtest/'+jobName.value+'.stdout',
+                  stderr   = '/home/'+self.host_userName+'/taudemtest/'+jobName.value+'.stderr',
                   hpcPath  = self.hpcRoot,
                   modules  = 'module load singularity',#+' '.join(list(self.modules)),
                   exe      = self.exe
@@ -426,7 +449,7 @@ class Job():
 		nextRemotePath = remotePath + '/' + f
 		nextLocalPath = localPath + '/' + f
 		if 'file!' in self.__runCommandBlock("if [ -f " + nextRemotePath + " ]; then echo 'file!'; fi"):
-		    output.value+='<br>Going to download the file %s</font>'%(remotePath)
+		    output.value+='#'#'<br>Going to download the file %s</font>'%(remotePath)
                     downloadFile(nextLocalPath, nextRemotePath, f)
 		    continue;
 		else:
@@ -444,9 +467,10 @@ class Job():
             if os.path.exists(output_files):
 		shutil.rmtree(output_files)
             os.makedirs(output_files)
-	    self.__sftp.get(self.remoteSummaDir + "/Test.stdout", output_files+"/out.stdout")
-            recursive_download (output_files, self.remoteSummaDir + "/summaTestCases/output")
-            output.value+='<br>The output should be in your Jupyter login folder</font>' 
+	    self.__sftp.get(self.remoteSummaDir + "/%s.stdout"%self.jobName, output_files+"/out.stdout")
+	    self.__sftp.get(self.remoteSummaDir + "/%s.stderr"%self.jobName, output_files+"/out.stderr")
+	    self.__sftp.get(self.remoteSummaDir + "/testfel.tif", output_files+"/testfel.tif")
+            output.value+='<br>===Program Output===<br>%s======<br>The output is in %s.'%(open('output/%s/out.stdout'%self.jobName).read().replace('\n','<br>'),output_files)
          #   filesSelector = FileBrowser(output_files)
          #   display(filesSelector.widget())
 	 #   out_file_path = filesSelector.getPath()
@@ -454,39 +478,32 @@ class Job():
           #      out_file_path = filesSelector.getPath()
 
         #    logger.info(out_file_path)
-            test = summaVis("output/"+ self.jobName+ "/ouput1/syntheticTestCases/colbeck1976/colbeck1976-exp1_1990-01-01-00_spinup_testSumma_1.nccolbeck1976-exp1_1990-01-01-00_spinup_testSumma_1.nc")
-            test.attrPlot('scalarRainPlusMelt')
             self.__client.exec_command("rm -r " + self.remoteSummaDir)
             switchMode()
 		
-        def summa_dir_name():
-            stdout = "Found\n"
-            ans = "nothing"
-            summaTestDirPath = "/Users/CarnivalBug/Desktop/Jupyter-xsede/summatest"
-            while (stdout == "Found\n"):
-                ans = "/home/" + self.host_userName + "/summatest_" + str(random.randint(1,10000))
-                stdout = self.__runCommandBlock("[ -d " + ans + " ] && echo 'Found'")
-		
-            basename = os.path.basename(summaTestDirPath)
-            basezip = shutil.make_archive(basename, 'zip', summaTestDirPath)
-            self.__sftp.put(basezip, ans+'.zip')
+        def remote_dir_name():
+            remote_path = "/home/%s/taudemtest_%d"%(self.host_userName ,int(time.time()))
+            local = "/opt/fz/Jupyter-xsede/taudemtest"
+            self.__sftp.put('/opt/fz/Jupyter-xsede/taudemtest.zip', remote_path + '.zip')
 
-            self.__runCommandBlock('unzip ' + ans + '.zip -d ' + ans)
-            self.__runCommandBlock('rm '+ ans + '.zip')
+            self.__runCommandBlock('unzip ' + remote_path + '.zip -d ' + remote_path)
+            self.__runCommandBlock('rm '+ remote_path + '.zip')
             
-            return ans
+            return remote_path
 
         def submit(b):
+            switchMode()
             output.value += '<br>Uploading the task\n</font>'
-            self.remoteSummaDir = summa_dir_name()
+            self.remoteSummaDir = remote_dir_name()
             filename = '%s.sh'%jobName.value
             
             jobview.value=self.job_template.substitute(
+                  allocation = location.value,
                   jobname  = jobName.value, 
-		  n_times  = nTimes.value,
-                  n_nodes  = nNodes.value, 
+                  n_times  = nTimes.value,
+                  n_nodes  = nTimes.value/20+1, 
                   is_gpu   = isGPU.value.lower().replace(' ',''),
-                  ppn      = ppn.value,
+                  ppn      = 20,
                   walltime = '%d:00:00'%int(float(walltime.value)), 
                   username = self.userName, 
                   stdout   = self.remoteSummaDir + "/" + jobName.value + '.stdout',
@@ -501,7 +518,6 @@ class Job():
             self.pbs = self.jobDir + '/' + filename
             self.__sftp.put(self.pbs, self.remoteSummaDir + '/run.qsub')
 	    output.value += '<br>Installing the task\n</font>'
-            self.__runCommandBlock('cd ' + self.remoteSummaDir + ' && bash ./installSummaTest.sh '+ str(self.num_times_exe))
             self.jobId = self.__runCommand('cd '+ self.remoteSummaDir + ' && qsub run.qsub').strip()
             if ('ERROR' in self.jobId or 'WARN' in self.jobId):
                 logger.warn('submit job error: %s'%self.jobId)
@@ -509,7 +525,6 @@ class Job():
             self.submissionTime=time.time()
             self.jobStatus = 'queuing'
             output.value+='<br>Job %s submitted at %s \n</font>'%(self.jobId,time.ctime())
-            switchMode()
             t=Thread(target=monitorDeamon)
             t.start()
         
@@ -526,17 +541,19 @@ class Job():
             switchMode()
         
         newJob.on_click(click_newJob)
-        
         submitForm=VBox([
+            Title(),
                 Labeled('Job name', jobName),
-		Labeled('No. times', nTimes),
-                Labeled('Executable', entrance),
-                Labeled('No. nodes', nNodes),
-                Labeled('Cores per node', ppn),
-                Labeled('GPU needed', isGPU),
+		Labeled('No. CPUs', nTimes),
+                #Labeled('Executable', entrance),
+                #Labeled('No. nodes', nNodes),
+                #Labeled('Cores per node', ppn),
+                #Labeled('GPU needed', isGPU),
                 Labeled('Walltime (h)', walltime),
-		Labeled('Times to execute', num_times_exe),
-                Labeled('Job script', jobview),
+                Labeled('Allocation', location),
+                Labeled('Input DEM', dem),
+		#Labeled('Times to execute', num_times_exe),
+                #Labeled('Job script', jobview),
                 Labeled('', confirm)
             ])
         statusTab=VBox([
