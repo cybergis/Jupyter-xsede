@@ -9,7 +9,7 @@ The principle here is to use [Singularity](https://singularity.lbl.gov/) to pull
 
 The folder `summatest/` contains the customized test data of SUMMA. The singularity image is not included in the repo due to its size. So to prepare the library, it is required to build the SUMMA singularity image from Dokcer hub using `singularity pull docker://bartnijssen/summa summa.img` in the `summatest/` folder.
 
-In order to use Taudem library, it is required to upload a tif file of DEM to start Taudem analysis.
+Similarly, the folder `taudemtest/` contains the customized test data of TauDEM. The singularity image is not included in the repo due to its size. So to prepare the library, it is required to build the Taudem singularity image from Dokcer hub using `singularity pull docker://wkmor1/docker-taudem taudem.simg` in the `taudemtest/` folder.
 
 Besides, an account on Comet with corresponding allocation is needed to sign-in and complete the computation.
 
