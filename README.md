@@ -23,12 +23,12 @@ There is a [webpage](https://hsjupyter.cigi.illinois.edu:8000/hub/login) people 
 
 1. A basic example usage of this library is shown below (using the example notebook in the repo):
 
-![](Usage.jpg)
+![](image/Usage.jpg)
 
 2. Summa test example
 
-![](summa_usage.jpg)
+![](image/summa_usage.jpg)
 
 3. TauDEM test example
 
-![](Taudem_usage.jpg)
+![](image/Taudem_usage.jpg)
