@@ -164,7 +164,7 @@ class Summa():
             os.makedirs(self.jobDir)
         login_success = False
         if (user_name=="flu8"):
-            pw = "lfz23nG0124"
+            pw = "xxxxxxxx"
             self.__client.connect(self.host, username=self.host_userName, password=pw)
             self.__sftp=self.__client.open_sftp()
             login_success = True
