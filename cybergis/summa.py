@@ -24,6 +24,8 @@ import shutil
 import re 
 from summaVis import summaVis
 import random
+import fileinput
+import sys
 
 #from FileBrowser import FileBrowser
 # logger configuration 
@@ -112,14 +114,14 @@ def tilemap(tif, name, overwrite=False, overlay=None,tilelvl=[9,13]):
 
 class Summa():
     def __init__(self,HOST_NAME="localhost", user_name = "flu8", task_path="" ,jobName='Test',nTimes=1,
-		nNodes=1,ppn=1,isGPU=False,walltime=1,exe='date'):
+        nNodes=1,ppn=1,isGPU=False,walltime=10,exe='date',snow_freeze_scale=50.0000, tempRangeTimestep=2.000):
         
-	'''intial a new job instance
-	@type  HOST_NAME:    String, required
-	@param HOST_NAME:    the hpc server to run task
-	@type  user_name:    String
-	@param user_name:    the username for the host, default if host is localhost
-	'''
+    '''intial a new job instance
+    @type  HOST_NAME:    String, required
+    @param HOST_NAME:    the hpc server to run task
+    @type  user_name:    String
+    @param user_name:    the username for the host, default if host is localhost
+    '''
         if (HOST_NAME=="comet" or HOST_NAME=="Comet"):
             HOST_NAME = 'comet.sdsc.xsede.org'
         self.__client = paramiko.SSHClient()
@@ -146,25 +148,27 @@ class Summa():
         self.relPath = os.path.relpath(os.getcwd(), self.homeDir)
         self.editMode = True
         self.num_times_exe = 1
-	self.ext = 'for i in `seq '+ str(self.nTimes)  + str(self.num_times_exe) + '`\ndo\nsingularity exec summa.simg ./runSummaTest.sh $i\ndone'
+        self.snow_freeze_scale = snow_freeze_scale
+        self.tempRangeTimestep = tempRangeTimestep
+    self.ext = 'for i in `seq '+ str(self.nTimes)  + str(self.num_times_exe) + '`\ndo\nsingularity exec summa.simg ./runSummaTest.sh $i\ndone'
 
         self.jobId = None
-	self.remoteSummaDir = "/home/%s/"%self.host_userName
-	#self.summaFolder = "/home/%s/summatest"%self.host_userName
+    self.remoteSummaDir = "/home/%s/"%self.host_userName
+    #self.summaFolder = "/home/%s/summatest"%self.host_userName
         with open('/opt/cybergis/summa.template') as input:
             self.job_template=Template(input.read())
         self.login(user_name)
-	self.outputPath="./output"
-	self.outputFiles = {}
-	if not os.path.exists(self.outputPath):
-	    os.makedirs(self.outputPath)
+    self.outputPath="./output"
+    self.outputFiles = {}
+    if not os.path.exists(self.outputPath):
+        os.makedirs(self.outputPath)
 
     def login(self, user_name):
         if not os.path.exists(self.jobDir):
             os.makedirs(self.jobDir)
         login_success = False
         if (user_name=="flu8"):
-            pw = "xxxxxxxx"
+            pw = "lfz23nG0124"
             self.__client.connect(self.host, username=self.host_userName, password=pw)
             self.__sftp=self.__client.open_sftp()
             login_success = True
@@ -181,14 +185,14 @@ class Summa():
                 else:
                     logger.info('Successfully logged in as %s'%self.host_userName)        
                     login_success = True
-    	pw = ""
-	
+        pw = ""
+    
         # create projects folder in HPC
         #if 'exists' not in self.__runCommand("if [ -d ~/projects ]; then echo 'exists'; fi"):
         #    logger.warn("Please link projects folder in HPC " + self.host 
-	#		+" to your home folder so that to ensure the parallel computation")
+    #       +" to your home folder so that to ensure the parallel computation")
         #    exit()
-	if 'exists' not in self.__runCommand("if [ -d " + HPC_PRJ + " ]; then echo 'exists'; fi"):
+    if 'exists' not in self.__runCommand("if [ -d " + HPC_PRJ + " ]; then echo 'exists'; fi"):
             self.__runCommand("mkdir "+ HPC_PRJ)
   
         moduleList = self.__runCommand("module avail 2>&1 | grep -v '/sw' | tr ' ' '\n' | sed '/^$/d' | sort") 
@@ -226,21 +230,21 @@ class Summa():
             logger.warn("error when run command "+command + " caused by " + e.message)
             exit()
         return ''.join(stdout.readlines())+''.join(stderr.readlines())
-	
+    
     def __runCommandBlock(self, command):
-	ans = ""
-	try:
-	    stdin,stdout,stderr = self.__client.exec_command(command)
-	    while (not stdout.channel.exit_status_ready()):
-		ans += stdout.read(1000)
-	except Exception as e:
+    ans = ""
+    try:
+        stdin,stdout,stderr = self.__client.exec_command(command)
+        while (not stdout.channel.exit_status_ready()):
+        ans += stdout.read(1000)
+    except Exception as e:
             logger.warn("error when run command " + command + " in blocking model, caused by " + e.message)
-	    exit()
+        exit()
         return ans
  
     def __submitUI(self, preview=True, monitor=True):
         fileList=listExeutables()
-        arr = self.__runCommand("show_accounts | grep 'flu8' | awk '{print $2}' ")
+        arr = self.__runCommand("show_accounts | grep '%s' | awk '{print $2}' "%self.host_userName)
         locationList = []
         word = ""
         for char in arr:
@@ -258,7 +262,7 @@ class Summa():
 
 
         jobName=Text(value=self.jobName)
-	#summaFolder = Text(value = self.summaFolder)
+    #summaFolder = Text(value = self.summaFolder)
         entrance=Dropdown(
             options=fileList,
             value=fileList[0],
@@ -269,18 +273,18 @@ class Summa():
             options = locationList,
             value = locationList[0],
         )
-	
-	nTimes=BoundedIntText(
-	    value=self.nTimes,
-	    min=1,
-	    max=1000,
-	    step=1,
- 	    continuous_update=False,
-	    orientation='horizontal',
-	    readout=True,
-	    readout_format='d',
-	    slider_color='white'
-	)
+    
+    nTimes=BoundedIntText(
+        value=self.nTimes,
+        min=1,
+        max=1000,
+        step=1,
+        continuous_update=False,
+        orientation='horizontal',
+        readout=True,
+        readout_format='d',
+        slider_color='white'
+    )
     
         nNodes=IntSlider(
             value=self.nNodes,
@@ -318,6 +322,29 @@ class Summa():
             slider_color='white'
         )
         Parameter = Text(value='')
+        sfc=FloatSlider(
+            value=float(self.snow_freeze_scale),
+            min=50.0,
+            max=500.0,
+            step=10.0,
+            continuous_update=False,
+            orientation='horizontal',
+            readout=True,
+            readout_format='.1f',
+            slider_color='white'
+        )
+
+        trt=FloatSlider(
+            value=float(self.tempRangeTimestep),
+            min=2.0,
+            max=10.0,
+            step=1.0,
+            continuous_update=False,
+            orientation='horizontal',
+            readout=True,
+            readout_format='.1f',
+            slider_color='white'
+        )
 
 
         preview=Button(
@@ -329,7 +356,7 @@ class Summa():
         jobview=Textarea(
 
             layout=Layout(width='500px',height='225px',max_width='1000px', max_height='1000px')
-	    #layout=Layout(width='0px',height='0px',max_width='0px', max_height='0px')
+        #layout=Layout(width='0px',height='0px',max_width='0px', max_height='0px')
 
         )
         confirm=Button(
@@ -371,7 +398,7 @@ class Summa():
         
         def click_preview(b):
             self.jobName = jobName.value
-	    #self.summaFolder = summaFolder.value
+        #self.summaFolder = summaFolder.value
             self.nNodes = int(nNodes.value)
             self.isGPU = isGPU.value.lower().replace(' ','')=='gpu'
             self.ppn = int(ppn.value)
@@ -387,14 +414,14 @@ class Summa():
                   n_nodes  = nTimes.value/20+1, 
                   is_gpu   = isGPU.value.lower().replace(' ',''),
                   ppn      = 20,
-                  walltime = '%d:00:00'%int(float(walltime.value)), 
+                  walltime = '00:%02d:00'%int(float(walltime.value)), 
                   username = self.userName, 
                   stdout   = '/home/'+self.host_userName+'/summatest/'+jobName.value+'.stdout',
                   stderr   = '/home/'+self.host_userName+'/summatest/'+jobName.value+'.stderr',
                   hpcPath  = self.hpcRoot,
                   modules  = 'module load singularity',#+' '.join(list(self.modules)),
                   exe      = self.exe
- 		  
+          
            )
         click_preview(1)
         preview.on_click(click_preview)    
@@ -420,44 +447,47 @@ class Summa():
                     self.jobStatus = 'running'
                     self.startTime = time.time()
                     self.queueTime = self.startTime - self.submissionTime
-                    output.value+='<br>Job %s started after queuing for %.1fs'%(self.jobId,self.queueTime)
+                    #output.value+='<br>Job %s started after queuing for %.1fs'%(self.jobId,self.queueTime)
+                    output.value+='<br>Job Running'
                 if currentStatus == 'U':
                     self.jobStatus = 'finished'
                     result = 'Job %s is finished'%self.jobId
                     est_time= '\n'*7
                     self.endTime=time.time()
                     self.runTime=self.endTime-self.startTime
-                    output.value+='<br>Job %s finished after running for %.1fs.'%(self.jobId, self.runTime)
-                    output.value+='<br>Total walltime spent: %.1fs</font>'%(self.queueTime+self.runTime)
+                    #output.value+='<br>Job %s finished after running for %.1fs.'%(self.jobId, self.runTime)
+                    #output.value+='<br>Total walltime spent: %.1fs</font>'%(self.queueTime+self.runTime)
+                    output.value+='<br>Preparing for the result:</font>'
+                    output.value+='<br>Loading: </font>'
                
             status.value='<pre><font size=2>%s\n</font></pre>'%(result)
             
         refreshStatus(1)
         refresh.on_click(refreshStatus)
         
-	def downloadFile(localPath, remotePath, filename):
+    def downloadFile(localPath, remotePath, filename):
             if not os.path.exists(localPath):
-		os.makedirs(localPath)
-	    self.__sftp.get(remotePath, localPath+filename)#, lambda a,b : print(a,b) )
+        os.makedirs(localPath)
+        self.__sftp.get(remotePath, localPath+filename)#, lambda a,b : print(a,b) )
 
-	def recursive_download(localPath, remotePath):
-	    fs= self.__runCommandBlock("ls " + remotePath)
+    def recursive_download(localPath, remotePath):
+        fs= self.__runCommandBlock("ls " + remotePath)
 
-	    for f in fs.split('\n'):
+        for f in fs.split('\n'):
                 f.strip('\n')
                 if not f:
                     continue
-		nextRemotePath = remotePath + '/' + f
-		nextLocalPath = localPath + '/' + f
-		if 'file!' in self.__runCommandBlock("if [ -f " + nextRemotePath + " ]; then echo 'file!'; fi"):
-		    output.value+='#'#'<br>Going to download the file %s</font>'%(remotePath)
+        nextRemotePath = remotePath + '/' + f
+        nextLocalPath = localPath + '/' + f
+        if 'file!' in self.__runCommandBlock("if [ -f " + nextRemotePath + " ]; then echo 'file!'; fi"):
+            output.value+='#'#'<br>Going to download the file %s</font>'%(remotePath)
                     downloadFile(nextLocalPath, nextRemotePath, f)
-		    continue;
-		else:
+            continue;
+        else:
                     if os.path.exists(nextLocalPath):
-		        shutil.rmtree(nextLocalPath)
-		    os.makedirs(nextLocalPath)
-		    recursive_download(nextLocalPath, nextRemotePath)
+                shutil.rmtree(nextLocalPath)
+            os.makedirs(nextLocalPath)
+            recursive_download(nextLocalPath, nextRemotePath)
                
         def monitorDeamon(interval=1):
             while self.jobStatus!='finished':
@@ -466,23 +496,25 @@ class Summa():
             
             output_files = self.outputPath+"/" + self.jobName
             if os.path.exists(output_files):
-		shutil.rmtree(output_files)
+        shutil.rmtree(output_files)
             os.makedirs(output_files)
-	    self.__sftp.get(self.remoteSummaDir + "/Test.stdout", output_files+"/out.stdout")
-            recursive_download (output_files, self.remoteSummaDir + "/summaTestCases/output")
-            output.value+='<br>The output should be in your Jupyter login folder</font>' 
+            output.value+='<br>Downloading outputs from %s to %s</br>'%(self.remoteSummaDir, output_files)
+        self.__sftp.get(self.remoteSummaDir + "/Test.stdout", output_files+"/out.stdout")
+            recursive_download(output_files, self.remoteSummaDir + "/summaTestCases/output")
+            output.value+='<br>The output should be in your Jupyter <a href="output/Test/ouput1/syntheticTestCases">login folder</font>' 
          #   filesSelector = FileBrowser(output_files)
          #   display(filesSelector.widget())
-	 #   out_file_path = filesSelector.getPath()
+     #   out_file_path = filesSelector.getPath()
          #   while(os.path.isdir(out_file_path)):
           #      out_file_path = filesSelector.getPath()
 
         #    logger.info(out_file_path)
-            test = summaVis("output/"+ self.jobName+ "/ouput1/syntheticTestCases/colbeck1976/colbeck1976-exp1_1990-01-01-00_spinup_testSumma_1.nccolbeck1976-exp1_1990-01-01-00_spinup_testSumma_1.nc")
+            #test = summaVis("output/"+ self.jobName+ "/ouput1/syntheticTestCases/colbeck1976/colbeck1976-exp1_1990-01-01-00_spinup_testSumma_1.nccolbeck1976-exp1_1990-01-01-00_spinup_testSumma_1.nc")
+            test = summaVis("output/Test/ouput1/syntheticTestCases/colbeck1976/colbeck1976-exp1_1990-01-01-00_spinup_testSumma_1.nccolbeck1976-exp1_1990-01-01-00_spinup_testSumma_1.nc")
             test.attrPlot('scalarRainPlusMelt')
             self.__client.exec_command("rm -r " + self.remoteSummaDir)
             switchMode()
-		
+        
         def summa_dir_name():
             stdout = "Found\n"
             ans = "nothing"
@@ -490,7 +522,7 @@ class Summa():
             while (stdout == "Found\n"):
                 ans = "/home/" + self.host_userName + "/summatest_" + str(random.randint(1,10000))
                 stdout = self.__runCommandBlock("[ -d " + ans + " ] && echo 'Found'")
-		
+        
             basename = os.path.basename(summaTestDirPath)
             basezip = shutil.make_archive(basename, 'zip', summaTestDirPath)
             self.__sftp.put(basezip, ans+'.zip')
@@ -500,8 +532,16 @@ class Summa():
             
             return ans
 
+
+        def replaceAll(file,searchExp,replaceExp):
+            for line in fileinput.input(file, inplace=1):
+                if searchExp in line:
+                    line = replaceExp
+                sys.stdout.write(line)
+
         def submit(b):
             output.value += '<br>Uploading the task\n</font>'
+            #output.value += '<br>Waiting in the queue\n</font>'
             self.remoteSummaDir = summa_dir_name()
             filename = '%s.sh'%jobName.value
             
@@ -512,7 +552,7 @@ class Summa():
                   n_nodes  = nTimes.value/20+1, 
                   is_gpu   = isGPU.value.lower().replace(' ',''),
                   ppn      = 20,
-                  walltime = '%d:00:00'%int(float(walltime.value)), 
+                  walltime = '00:%02d:00'%int(float(walltime.value)), 
                   username = self.userName, 
                   stdout   = self.remoteSummaDir + "/" + jobName.value + '.stdout',
                   stderr   = self.remoteSummaDir + "/" + jobName.value + '.stderr',
@@ -521,11 +561,22 @@ class Summa():
                   exe      = self.exe
             )
 
+
+            temp = trt.value
+            snow_freeze_scale = sfc.value
+            tempRangeTimestepmid = str(temp)+"000"
+            tempRangeTimestepmin = str(-0.0625*temp+0.625)+"000"
+            tempRangeTimestepmax = str(11.875*temp-18.75)+"000"
+            target_str = "tempRangeTimestep         |       "+str(tempRangeTimestepmid)+" |       "+str(tempRangeTimestepmin)+" |    "+str(tempRangeTimestepmax)+"\n"
+
+            replaceAll("/opt/fz/Jupyter-xsede/summatest/summaTestCases/settings_org/syntheticTestCases/colbeck1976/summa_zLocalParamInfo.txt", "snowfrz_scale", "snowfrz_scale             |      "+str(snow_freeze_scale)+"000 |      10.0000 |    1000.0000\n")
+            replaceAll("/opt/fz/Jupyter-xsede/summatest/summaTestCases/settings_org/syntheticTestCases/colbeck1976/summa_zLocalParamInfo.txt", "tempRangeTimestep", "tempRangeTimestep         |       "+str(tempRangeTimestepmid)+" |       "+str(tempRangeTimestepmin)+" |    "+str(tempRangeTimestepmax)+"\n")
+
             with open(self.jobDir + '/' + filename,'w') as out:
                 out.write(jobview.value)
             self.pbs = self.jobDir + '/' + filename
             self.__sftp.put(self.pbs, self.remoteSummaDir + '/run.qsub')
-	    output.value += '<br>Installing the task\n</font>'
+        #output.value += '<br>Installing the task\n</font>'
             self.__runCommandBlock('cd ' + self.remoteSummaDir + ' && bash ./installSummaTest.sh '+ str(self.num_times_exe))
             self.jobId = self.__runCommand('cd '+ self.remoteSummaDir + ' && qsub run.qsub').strip()
             if ('ERROR' in self.jobId or 'WARN' in self.jobId):
@@ -533,7 +584,7 @@ class Summa():
                 exit()
             self.submissionTime=time.time()
             self.jobStatus = 'queuing'
-            output.value+='<br>Job %s submitted at %s \n</font>'%(self.jobId,time.ctime())
+            #output.value+='<br>Job %s submitted at %s \n</font>'%(self.jobId,time.ctime())
             switchMode()
             t=Thread(target=monitorDeamon)
             t.start()
@@ -555,14 +606,16 @@ class Summa():
             Title(),
             Labeled('Allocation', location),
                 #Labeled('Job name', jobName),
-		Labeled('No. Times', nTimes),
+        Labeled('No. Times', nTimes),
                 #Labeled('Executable', entrance),
                 #Labeled('No. nodes', nNodes),
                 #Labeled('Cores per node', ppn),
                 #Labeled('GPU needed', isGPU),
-                Labeled('Walltime (h)', walltime),
-                Labeled('Extra Parameter', Parameter),
-		#Labeled('Times to execute', num_times_exe),
+                Labeled('Walltime (min)', walltime),
+                #Labeled('Extra Parameter', Parameter),
+                Labeled('Snow freeze scale', sfc),
+                Labeled('Temperture Range Timestep', trt),
+        #Labeled('Times to execute', num_times_exe),
                 #Labeled('Job script', jobview),
                 Labeled('', confirm)
             ])
