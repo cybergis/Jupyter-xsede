@@ -225,7 +225,7 @@ class TauDEM():
         try:
             stdin,stdout,stderr = self.__client.exec_command(command)
             while (not stdout.channel.exit_status_ready()):
-            ans += stdout.read(1000)
+                ans += stdout.read(1000)
         except Exception as e:
             logger.warn("error when run command " + command + " in blocking model, caused by " + e.message)
             exit()
