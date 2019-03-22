@@ -17,10 +17,9 @@ logger.setLevel(logging.DEBUG)
 # support chart: 
 # 	line
 class summaVis:
-
     def __init__(self, filepath):
         self.filepath = filepath
-	self.ds = xr.open_dataset(filepath)
+        self.ds = xr.open_dataset(filepath)
 
 # read NetCDF file 
 # parameter input 
@@ -35,5 +34,5 @@ class summaVis:
 
     def attrPlot(self, attr):
         ax = self.ds[attr].plot()
-	plt.show()
-	return ax 
+        plt.show()
+        return ax 
