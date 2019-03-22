@@ -1286,12 +1286,12 @@ class Editor(Writer):
 
     def sqlprocess(self,sqlstring):
         com=sqlstring.split(' ')
-        print com
+        print(com)
         if com[0]=='set':
-            print com[5],com[6],com[7],com[1],com[3]
+            print(com[5],com[6],com[7],com[1],com[3])
             return self.setrec(com[5],com[6],com[7],com[1],com[3])
         else:
-            print com[3],com[4],com[5]
+            print(com[3],com[4],com[5])
             return self.select(com[3],com[4],com[5])
 
     def strech_extent(self,targetbbox):
