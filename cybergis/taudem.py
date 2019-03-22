@@ -14,7 +14,7 @@ from os.path import expanduser
 from pkg_resources import resource_string
 from IPython.core.magic import (register_line_magic, register_cell_magic,register_line_cell_magic)
 import hashlib
-from itertools import izip,cycle
+from itertools import cycle
 from IPython.display import IFrame
 from threading import Thread
 import time
@@ -45,12 +45,12 @@ JUPYTER_HOME=os.path.expanduser('~')
 
 #password security
 def encrypt(plaintext):
-    ciphertext = ''.join(chr(ord(x) ^ ord(y)) for (x,y) in izip(plaintext, cycle(hashlib.sha256(USERNAME).hexdigest())))
+    ciphertext = ''.join(chr(ord(x) ^ ord(y)) for (x,y) in zip(plaintext, cycle(hashlib.sha256(USERNAME).hexdigest())))
     return ciphertext.encode('base64')
 
 def decrypt(ciphertext):
     ciphertext = ciphertext.decode('base64')
-    return ''.join(chr(ord(x) ^ ord(y)) for (x,y) in izip(ciphertext, cycle(hashlib.sha256(USERNAME).hexdigest())))
+    return ''.join(chr(ord(x) ^ ord(y)) for (x,y) in zip(ciphertext, cycle(hashlib.sha256(USERNAME).hexdigest())))
 
 
 def Labeled(label, widget):
