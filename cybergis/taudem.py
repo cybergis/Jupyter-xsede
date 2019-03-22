@@ -440,17 +440,17 @@ class TauDEM():
                 f.strip('\n')
                 if not f:
                     continue
-            nextRemotePath = remotePath + '/' + f
-            nextLocalPath = localPath + '/' + f
-            if 'file!' in self.__runCommandBlock("if [ -f " + nextRemotePath + " ]; then echo 'file!'; fi"):
-                output.value+='#'#'<br>Going to download the file %s</font>'%(remotePath)
-                downloadFile(nextLocalPath, nextRemotePath, f)
-                continue;
-            else:
-                if os.path.exists(nextLocalPath):
-                    shutil.rmtree(nextLocalPath)
-                os.makedirs(nextLocalPath)
-                recursive_download(nextLocalPath, nextRemotePath)
+                nextRemotePath = remotePath + '/' + f
+                nextLocalPath = localPath + '/' + f
+                if 'file!' in self.__runCommandBlock("if [ -f " + nextRemotePath + " ]; then echo 'file!'; fi"):
+                    output.value+='#'#'<br>Going to download the file %s</font>'%(remotePath)
+                    downloadFile(nextLocalPath, nextRemotePath, f)
+                    continue;
+                else:
+                    if os.path.exists(nextLocalPath):
+                        shutil.rmtree(nextLocalPath)
+                    os.makedirs(nextLocalPath)
+                    recursive_download(nextLocalPath, nextRemotePath)
                
         def monitorDeamon(interval=1):
             while self.jobStatus!='finished':
