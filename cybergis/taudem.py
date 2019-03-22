@@ -111,14 +111,8 @@ def tilemap(tif, name, overwrite=False, overlay=None,tilelvl=[9,13]):
 
 class TauDEM():
     def __init__(self,HOST_NAME="localhost", user_name = "flu8", task_path="" ,jobName='Test',nTimes=1,
-		nNodes=1,ppn=1,isGPU=False,walltime=1,exe='date'):
-        
-	'''intial a new job instance
-	@type  HOST_NAME:    String, required
-	@param HOST_NAME:    the hpc server to run task
-	@type  user_name:    String
-	@param user_name:    the username for the host, default if host is localhost
-	'''
+        nNodes=1,ppn=1,isGPU=False,walltime=1,exe='date'):
+
         if (HOST_NAME=="comet" or HOST_NAME=="Comet"):
             HOST_NAME = 'comet.sdsc.xsede.org'
         self.__client = paramiko.SSHClient()
@@ -145,18 +139,18 @@ class TauDEM():
         self.relPath = os.path.relpath(os.getcwd(), self.homeDir)
         self.editMode = True
         self.num_times_exe = 1
-	self.ext = 'singularity exec taudem.simg mpiexec -n '+ str(self.nTimes) + ' pitremove test.tif'
+        self.ext = 'singularity exec taudem.simg mpiexec -n '+ str(self.nTimes) + ' pitremove test.tif'
 
         self.jobId = None
-	self.remoteSummaDir = "/home/%s/"%self.host_userName
-	#self.summaFolder = "/home/%s/summatest"%self.host_userName
+        self.remoteSummaDir = "/home/%s/"%self.host_userName
+    #self.summaFolder = "/home/%s/summatest"%self.host_userName
         with open('/opt/cybergis/summa.template') as input:
             self.job_template=Template(input.read())
         self.login(user_name)
-	self.outputPath="./output"
-	self.outputFiles = {}
-	if not os.path.exists(self.outputPath):
-	    os.makedirs(self.outputPath)
+        self.outputPath="./output"
+        self.outputFiles = {}
+        if not os.path.exists(self.outputPath):
+            os.makedirs(self.outputPath)
 
     def login(self, user_name):
         if not os.path.exists(self.jobDir):
@@ -180,14 +174,14 @@ class TauDEM():
                 else:
                     logger.info('Successfully logged in as %s'%self.host_userName)        
                     login_success = True
-    	pw = ""
-	
+        pw = ""
+    
         # create projects folder in HPC
         #if 'exists' not in self.__runCommand("if [ -d ~/projects ]; then echo 'exists'; fi"):
         #    logger.warn("Please link projects folder in HPC " + self.host 
-	#		+" to your home folder so that to ensure the parallel computation")
+    #       +" to your home folder so that to ensure the parallel computation")
         #    exit()
-	if 'exists' not in self.__runCommand("if [ -d " + HPC_PRJ + " ]; then echo 'exists'; fi"):
+        if 'exists' not in self.__runCommand("if [ -d " + HPC_PRJ + " ]; then echo 'exists'; fi"):
             self.__runCommand("mkdir "+ HPC_PRJ)
   
         moduleList = self.__runCommand("module avail 2>&1 | grep -v '/sw' | tr ' ' '\n' | sed '/^$/d' | sort") 
@@ -225,16 +219,16 @@ class TauDEM():
             logger.warn("error when run command "+command + " caused by " + e.message)
             exit()
         return ''.join(stdout.readlines())+''.join(stderr.readlines())
-	
+    
     def __runCommandBlock(self, command):
-	ans = ""
-	try:
-	    stdin,stdout,stderr = self.__client.exec_command(command)
-	    while (not stdout.channel.exit_status_ready()):
-		ans += stdout.read(1000)
-	except Exception as e:
+        ans = ""
+        try:
+            stdin,stdout,stderr = self.__client.exec_command(command)
+            while (not stdout.channel.exit_status_ready()):
+            ans += stdout.read(1000)
+        except Exception as e:
             logger.warn("error when run command " + command + " in blocking model, caused by " + e.message)
-	    exit()
+            exit()
         return ans
  
     def __submitUI(self, preview=True, monitor=True):
@@ -257,7 +251,7 @@ class TauDEM():
 
 
         jobName=Text(value=self.jobName)
-	#summaFolder = Text(value = self.summaFolder)
+    #summaFolder = Text(value = self.summaFolder)
         entrance=Dropdown(
             options=fileList,
             value=fileList[0],
@@ -268,18 +262,18 @@ class TauDEM():
             options = locationList,
             value = locationList[0],
         )
-	
-	nTimes=BoundedIntText(
-	    value=self.nTimes,
-	    min=1,
-	    max=1000,
-	    step=1,
- 	    continuous_update=False,
-	    orientation='horizontal',
-	    readout=True,
-	    readout_format='d',
-	    slider_color='white'
-	)
+    
+        nTimes=BoundedIntText(
+            value=self.nTimes,
+            min=1,
+            max=1000,
+            step=1,
+            continuous_update=False,
+            orientation='horizontal',
+            readout=True,
+            readout_format='d',
+            slider_color='white'
+        )
     
         nNodes=IntSlider(
             value=self.nNodes,
@@ -328,7 +322,7 @@ class TauDEM():
         jobview=Textarea(
 
             layout=Layout(width='500px',height='225px',max_width='1000px', max_height='1000px')
-	    #layout=Layout(width='0px',height='0px',max_width='0px', max_height='0px')
+        #layout=Layout(width='0px',height='0px',max_width='0px', max_height='0px')
 
         )
         confirm=Button(
@@ -370,7 +364,7 @@ class TauDEM():
         
         def click_preview(b):
             self.jobName = jobName.value
-	    #self.summaFolder = summaFolder.value
+        #self.summaFolder = summaFolder.value
             self.nNodes = int(nNodes.value)
             self.isGPU = isGPU.value.lower().replace(' ','')=='gpu'
             self.ppn = int(ppn.value)
@@ -393,7 +387,7 @@ class TauDEM():
                   hpcPath  = self.hpcRoot,
                   modules  = 'module load singularity',#+' '.join(list(self.modules)),
                   exe      = self.exe
- 		  
+          
            )
         click_preview(1)
         preview.on_click(click_preview)    
@@ -434,29 +428,29 @@ class TauDEM():
         refreshStatus(1)
         refresh.on_click(refreshStatus)
         
-	def downloadFile(localPath, remotePath, filename):
+        def downloadFile(localPath, remotePath, filename):
             if not os.path.exists(localPath):
-		os.makedirs(localPath)
-	    self.__sftp.get(remotePath, localPath+filename)#, lambda a,b : print(a,b) )
+                os.makedirs(localPath)
+                self.__sftp.get(remotePath, localPath+filename)#, lambda a,b : print(a,b) )
 
-	def recursive_download(localPath, remotePath):
-	    fs= self.__runCommandBlock("ls " + remotePath)
+        def recursive_download(localPath, remotePath):
+            fs= self.__runCommandBlock("ls " + remotePath)
 
-	    for f in fs.split('\n'):
+            for f in fs.split('\n'):
                 f.strip('\n')
                 if not f:
                     continue
-		nextRemotePath = remotePath + '/' + f
-		nextLocalPath = localPath + '/' + f
-		if 'file!' in self.__runCommandBlock("if [ -f " + nextRemotePath + " ]; then echo 'file!'; fi"):
-		    output.value+='#'#'<br>Going to download the file %s</font>'%(remotePath)
-                    downloadFile(nextLocalPath, nextRemotePath, f)
-		    continue;
-		else:
+            nextRemotePath = remotePath + '/' + f
+            nextLocalPath = localPath + '/' + f
+            if 'file!' in self.__runCommandBlock("if [ -f " + nextRemotePath + " ]; then echo 'file!'; fi"):
+                output.value+='#'#'<br>Going to download the file %s</font>'%(remotePath)
+                downloadFile(nextLocalPath, nextRemotePath, f)
+                continue;
+        else:
                     if os.path.exists(nextLocalPath):
-		        shutil.rmtree(nextLocalPath)
-		    os.makedirs(nextLocalPath)
-		    recursive_download(nextLocalPath, nextRemotePath)
+                shutil.rmtree(nextLocalPath)
+            os.makedirs(nextLocalPath)
+            recursive_download(nextLocalPath, nextRemotePath)
                
         def monitorDeamon(interval=1):
             while self.jobStatus!='finished':
@@ -465,22 +459,21 @@ class TauDEM():
             
             output_files = self.outputPath+"/" + self.jobName
             if os.path.exists(output_files):
-		shutil.rmtree(output_files)
+                shutil.rmtree(output_files)
             os.makedirs(output_files)
-	    self.__sftp.get(self.remoteSummaDir + "/%s.stdout"%self.jobName, output_files+"/out.stdout")
-	    self.__sftp.get(self.remoteSummaDir + "/%s.stderr"%self.jobName, output_files+"/out.stderr")
-	    self.__sftp.get(self.remoteSummaDir + "/testfel.tif", output_files+"/testfel.tif")
+            self.__sftp.get(self.remoteSummaDir + "/%s.stdout"%self.jobName, output_files+"/out.stdout")
+            self.__sftp.get(self.remoteSummaDir + "/%s.stderr"%self.jobName, output_files+"/out.stderr")
+            self.__sftp.get(self.remoteSummaDir + "/testfel.tif", output_files+"/testfel.tif")
             output.value+='<br>===Program Output===<br>%s======<br>The output is in %s.'%(open('output/%s/out.stdout'%self.jobName).read().replace('\n','<br>'),output_files)
          #   filesSelector = FileBrowser(output_files)
          #   display(filesSelector.widget())
-	 #   out_file_path = filesSelector.getPath()
+     #   out_file_path = filesSelector.getPath()
          #   while(os.path.isdir(out_file_path)):
           #      out_file_path = filesSelector.getPath()
 
         #    logger.info(out_file_path)
             self.__client.exec_command("rm -r " + self.remoteSummaDir)
-            switchMode()
-		
+            switchMode()    
         def remote_dir_name():
             remote_path = "/home/%s/taudemtest_%d"%(self.host_userName ,int(time.time()))
             local = "/opt/fz/Jupyter-xsede/taudemtest"
@@ -517,7 +510,7 @@ class TauDEM():
                 out.write(jobview.value)
             self.pbs = self.jobDir + '/' + filename
             self.__sftp.put(self.pbs, self.remoteSummaDir + '/run.qsub')
-	    output.value += '<br>Installing the task\n</font>'
+            output.value += '<br>Installing the task\n</font>'
             self.jobId = self.__runCommand('cd '+ self.remoteSummaDir + ' && qsub run.qsub').strip()
             if ('ERROR' in self.jobId or 'WARN' in self.jobId):
                 logger.warn('submit job error: %s'%self.jobId)
@@ -527,7 +520,7 @@ class TauDEM():
             output.value+='<br>Job %s submitted at %s \n</font>'%(self.jobId,time.ctime())
             t=Thread(target=monitorDeamon)
             t.start()
-        
+    
         confirm.on_click(submit)
         
         def click_cancel(b):
@@ -544,7 +537,7 @@ class TauDEM():
         submitForm=VBox([
             Title(),
                 Labeled('Job name', jobName),
-		Labeled('No. CPUs', nTimes),
+                Labeled('No. CPUs', nTimes),
                 #Labeled('Executable', entrance),
                 #Labeled('No. nodes', nNodes),
                 #Labeled('Cores per node', ppn),
@@ -552,7 +545,7 @@ class TauDEM():
                 Labeled('Walltime (h)', walltime),
                 Labeled('Allocation', location),
                 Labeled('Input DEM', dem),
-		#Labeled('Times to execute', num_times_exe),
+        #Labeled('Times to execute', num_times_exe),
                 #Labeled('Job script', jobview),
                 Labeled('', confirm)
             ])
