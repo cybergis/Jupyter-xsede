@@ -144,7 +144,7 @@ class TauDEM():
         self.jobId = None
         self.remoteSummaDir = "/home/%s/"%self.host_userName
     #self.summaFolder = "/home/%s/summatest"%self.host_userName
-        with open('../summa.template') as input:
+        with open('/etc/jupyterhub/hub/Jupyter-xsede.summa.template') as input:
             self.job_template=Template(input.read())
         self.login(user_name)
         self.outputPath="./output"
