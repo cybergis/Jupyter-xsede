@@ -27,6 +27,20 @@ import random
 import fileinput
 import sys
 
+SUMMA_TEMPLATE='''#!/bin/bash
+#SBATCH --job-name=$jobname
+#SBATCH --nodes=$n_nodes
+#SBATCH -t $walltime
+#SBATCH --output=$stdout
+#SBATCH -e $stderr
+#SBATCH -A $allocation
+#SBATCH --partition=shared
+#SBATCH --ntasks-per-node=1
+
+$modules
+
+$exe'''
+
 #from FileBrowser import FileBrowser
 # logger configuration 
 
@@ -125,7 +139,7 @@ class Summa():
             self.__client = paramiko.SSHClient()
             self.__client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         except Exception as e:
-            logger.warn("error when create paramiko connection, caused by " + e.message)
+            logger.warn("error when create paramiko connection, caused by " + str(e))
             exit() 
         self.homeDir = JUPYTER_HOME
         self.jobDir = self.homeDir + '/.jobs'
@@ -149,8 +163,11 @@ class Summa():
         self.jobId = None
         self.remoteSummaDir = "/home/%s/"%self.host_userName
     #self.summaFolder = "/home/%s/summatest"%self.host_userName
-        with open('../summa.template') as input:
-            self.job_template=Template(input.read())
+        #with open('/etc/jupyterhub/hub/Jupyter-xsede.summa.template') as input:
+        #    self.job_template=Template(input.read())
+
+        self.job_template=Template(SUMMA_TEMPLATE)
+
         self.login(user_name)
         self.outputPath="./output"
         self.outputFiles = {}
@@ -170,7 +187,7 @@ class Summa():
                     self.__client.connect(self.host, username=self.host_userName, password=pw)
                     self.__sftp=self.__client.open_sftp()
                 except Exception as e:
-                    logger.warn("can not connect to server " + self.host + ", caused by " + e.message)
+                    logger.warn("can not connect to server " + self.host + ", caused by " + str(e))
                     exit()
                 else:
                     logger.info('Successfully logged in as %s'%self.host_userName)        
@@ -217,7 +234,7 @@ class Summa():
         try:
             stdin,stdout,stderr = self.__client.exec_command(command)
         except Exception as e: 
-            logger.warn("error when run command "+command + " caused by " + e.message)
+            logger.warn("error when run command "+command + " caused by " + str(e))
             exit()
         return ''.join(stdout.readlines())+''.join(stderr.readlines())
     
@@ -226,9 +243,9 @@ class Summa():
         try:
             stdin,stdout,stderr = self.__client.exec_command(command)
             while (not stdout.channel.exit_status_ready()):
-                ans += stdout.read(1000)
+                ans += stdout.read(1000).decode('utf-8')
         except Exception as e:
-            logger.warn("error when run command " + command + " in blocking model, caused by " + e.message)
+            logger.warn("error when run command " + command + " in blocking model, caused by " + str(e))
             exit()
         return ans
  
@@ -401,7 +418,7 @@ class Summa():
                   allocation = location.value,
                   jobname  = jobName.value,
                   n_times  = nTimes.value,
-                  n_nodes  = nTimes.value/20+1, 
+                  n_nodes  = int(nTimes.value/20+1), 
                   is_gpu   = isGPU.value.lower().replace(' ',''),
                   ppn      = 20,
                   walltime = '00:%02d:00'%int(float(walltime.value)), 
@@ -508,7 +525,7 @@ class Summa():
         def summa_dir_name():
             stdout = "Found\n"
             ans = "nothing"
-            summaTestDirPath = "/opt/fz/Jupyter-xsede/summatest"
+            summaTestDirPath = "/opt/cybergis/summatest"
             while (stdout == "Found\n"):
                 ans = "/home/" + self.host_userName + "/summatest_" + str(random.randint(1,10000))
                 stdout = self.__runCommandBlock("[ -d " + ans + " ] && echo 'Found'")
@@ -539,7 +556,7 @@ class Summa():
                   allocation = location.value,
                   jobname  = jobName.value, 
                   n_times  = nTimes.value,
-                  n_nodes  = nTimes.value/20+1, 
+                  n_nodes  = int(nTimes.value/20+1), 
                   is_gpu   = isGPU.value.lower().replace(' ',''),
                   ppn      = 20,
                   walltime = '00:%02d:00'%int(float(walltime.value)), 
@@ -559,8 +576,8 @@ class Summa():
             tempRangeTimestepmax = str(11.875*temp-18.75)+"000"
             target_str = "tempRangeTimestep         |       "+str(tempRangeTimestepmid)+" |       "+str(tempRangeTimestepmin)+" |    "+str(tempRangeTimestepmax)+"\n"
 
-            replaceAll("/opt/fz/Jupyter-xsede/summatest/summaTestCases/settings_org/syntheticTestCases/colbeck1976/summa_zLocalParamInfo.txt", "snowfrz_scale", "snowfrz_scale             |      "+str(snow_freeze_scale)+"000 |      10.0000 |    1000.0000\n")
-            replaceAll("/opt/fz/Jupyter-xsede/summatest/summaTestCases/settings_org/syntheticTestCases/colbeck1976/summa_zLocalParamInfo.txt", "tempRangeTimestep", "tempRangeTimestep         |       "+str(tempRangeTimestepmid)+" |       "+str(tempRangeTimestepmin)+" |    "+str(tempRangeTimestepmax)+"\n")
+            #replaceAll("/opt/cybergis/summatest/summaTestCases/settings_org/syntheticTestCases/colbeck1976/summa_zLocalParamInfo.txt", "snowfrz_scale", "snowfrz_scale             |      "+str(snow_freeze_scale)+"000 |      10.0000 |    1000.0000\n")
+            #replaceAll("/opt/cybergis/summatest/summaTestCases/settings_org/syntheticTestCases/colbeck1976/summa_zLocalParamInfo.txt", "tempRangeTimestep", "tempRangeTimestep         |       "+str(tempRangeTimestepmid)+" |       "+str(tempRangeTimestepmin)+" |    "+str(tempRangeTimestepmax)+"\n")
 
             with open(self.jobDir + '/' + filename,'w') as out:
                 out.write(jobview.value)

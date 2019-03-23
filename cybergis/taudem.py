@@ -144,7 +144,7 @@ class TauDEM():
         self.jobId = None
         self.remoteSummaDir = "/home/%s/"%self.host_userName
     #self.summaFolder = "/home/%s/summatest"%self.host_userName
-        with open('../summa.template') as input:
+        with open('/etc/jupyterhub/hub/Jupyter-xsede.summa.template') as input:
             self.job_template=Template(input.read())
         self.login(user_name)
         self.outputPath="./output"
@@ -156,24 +156,17 @@ class TauDEM():
         if not os.path.exists(self.jobDir):
             os.makedirs(self.jobDir)
         login_success = False
-        if (user_name=="flu8"):
-            pw = "lfz23nG0124"
-            self.__client.connect(self.host, username=self.host_userName, password=pw)
-            self.__sftp=self.__client.open_sftp()
-            login_success = True
-            logger.info('Successfully logged in as %s'%self.host_userName)
-        else:
-            while not login_success:
-                pw=getpass(prompt='Password')
-                try:
-                    self.__client.connect(self.host, username=self.host_userName, password=pw)
-                    self.__sftp=self.__client.open_sftp()
-                except Exception as e:
-                    logger.warn("can not connect to server " + self.host + ", caused by " + e.message)
-                    exit()
-                else:
-                    logger.info('Successfully logged in as %s'%self.host_userName)        
-                    login_success = True
+        while not login_success:
+            pw=getpass(prompt='Password')
+            try:
+                self.__client.connect(self.host, username=self.host_userName, password=pw)
+                self.__sftp=self.__client.open_sftp()
+            except Exception as e:
+                logger.warn("can not connect to server " + self.host + ", caused by " + e.message)
+                exit()
+            else:
+                logger.info('Successfully logged in as %s'%self.host_userName)        
+                login_success = True
         pw = ""
     
         # create projects folder in HPC
@@ -476,8 +469,8 @@ class TauDEM():
             switchMode()    
         def remote_dir_name():
             remote_path = "/home/%s/taudemtest_%d"%(self.host_userName ,int(time.time()))
-            local = "/opt/fz/Jupyter-xsede/taudemtest"
-            self.__sftp.put('/opt/fz/Jupyter-xsede/taudemtest.zip', remote_path + '.zip')
+            local = "/opt/cybergis/taudemtest"
+            self.__sftp.put('/opt/cybergis/taudemtest.zip', remote_path + '.zip')
 
             self.__runCommandBlock('unzip ' + remote_path + '.zip -d ' + remote_path)
             self.__runCommandBlock('rm '+ remote_path + '.zip')
