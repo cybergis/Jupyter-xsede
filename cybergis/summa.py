@@ -44,6 +44,21 @@ $exe'''
 #from FileBrowser import FileBrowser
 # logger configuration 
 
+SUMMA_TEMPLATE='''
+#!/bin/bash
+#SBATCH --job-name=$jobname
+#SBATCH --nodes=$n_nodes
+#SBATCH -t $walltime
+#SBATCH --output=$stdout
+#SBATCH -e $stderr
+#SBATCH -A $allocation
+#SBATCH --partition=shared
+#SBATCH --ntasks-per-node=1
+
+$modules
+
+$exe'''
+
 logger_format = '%(asctime)-15s %(message)s'
 logging.basicConfig(format = logger_format)
 logger = logging.getLogger('cybergis')
@@ -165,9 +180,7 @@ class Summa():
     #self.summaFolder = "/home/%s/summatest"%self.host_userName
         #with open('/etc/jupyterhub/hub/Jupyter-xsede.summa.template') as input:
         #    self.job_template=Template(input.read())
-
         self.job_template=Template(SUMMA_TEMPLATE)
-
         self.login(user_name)
         self.outputPath="./output"
         self.outputFiles = {}
