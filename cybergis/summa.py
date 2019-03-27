@@ -27,25 +27,10 @@ import random
 import fileinput
 import sys
 
-SUMMA_TEMPLATE='''#!/bin/bash
-#SBATCH --job-name=$jobname
-#SBATCH --nodes=$n_nodes
-#SBATCH -t $walltime
-#SBATCH --output=$stdout
-#SBATCH -e $stderr
-#SBATCH -A $allocation
-#SBATCH --partition=shared
-#SBATCH --ntasks-per-node=1
-
-$modules
-
-$exe'''
-
 #from FileBrowser import FileBrowser
 # logger configuration 
 
-SUMMA_TEMPLATE='''
-#!/bin/bash
+SUMMA_TEMPLATE='''#!/bin/bash
 #SBATCH --job-name=$jobname
 #SBATCH --nodes=$n_nodes
 #SBATCH -t $walltime
