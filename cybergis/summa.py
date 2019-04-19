@@ -44,6 +44,15 @@ $modules
 
 $exe'''
 
+KEELING_SUMMA_TEMPLATE='''#!/bin/bash
+#SBATCH --job-name=$jobname
+#SBATCH --nodes=$n_nodes
+#SBATCH -t $walltime
+#SBATCH --output=$stdout
+#SBATCH -e $stderr
+
+$exe'''
+
 logger_format = '%(asctime)-15s %(message)s'
 logging.basicConfig(format = logger_format)
 logger = logging.getLogger('cybergis')
@@ -127,14 +136,16 @@ def tilemap(tif, name, overwrite=False, overlay=None,tilelvl=[9,13]):
     return IFrame('%s/leaflet.html'%id, width='1000',height='600')
 
 class Summa():
-    def __init__(self,HOST_NAME="localhost", user_name = "NONE", task_path="" ,jobName='Test',nTimes=1,
+    def __init__(self,HOST_NAME="localhost", user_name = None, task_path="" ,jobName='Test',nTimes=1,
         nNodes=1,ppn=1,isGPU=False,walltime=10,exe='date',snow_freeze_scale=50.0000, tempRangeTimestep=2.000):
         
         if (HOST_NAME=="comet" or HOST_NAME=="Comet"):
             HOST_NAME = 'comet.sdsc.xsede.org'
+        elif HOST_NAME.lower() == 'keeling':
+            HOST_NAME = 'keeling.earth.illinois.edu'
         self.__client = paramiko.SSHClient()
         self.host = HOST_NAME
-        self.host_userName = user_name
+        self.host_userName = user_name or 'cigi-gisolve'  
         try:
             self.__client = paramiko.SSHClient()
             self.__client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -158,26 +169,35 @@ class Summa():
         self.num_times_exe = 1
         self.snow_freeze_scale = snow_freeze_scale
         self.tempRangeTimestep = tempRangeTimestep
-        self.ext = 'for i in `seq '+ str(self.nTimes)  + str(self.num_times_exe) + '`\ndo\nsingularity exec summa.simg ./runSummaTest.sh $i\ndone'
+        self.exe = 'for i in `seq '+ str(self.nTimes)  + str(self.num_times_exe) + '`\ndo\nsingularity exec summa.simg ./runSummaTest.sh $i\ndone'
 
         self.jobId = None
-        self.remoteSummaDir = "/home/%s/"%self.host_userName
+        self.remoteSummaDir = None #"/home/%s/"%self.host_userName
     #self.summaFolder = "/home/%s/summatest"%self.host_userName
         #with open('/etc/jupyterhub/hub/Jupyter-xsede.summa.template') as input:
         #    self.job_template=Template(input.read())
-        self.job_template=Template(SUMMA_TEMPLATE)
-        self.login(user_name)
+        self.job_template=Template(SUMMA_TEMPLATE if self.host.startswith('comet') else KEELING_SUMMA_TEMPLATE)
+        self.login()
         self.outputPath="./output"
         self.outputFiles = {}
         if not os.path.exists(self.outputPath):
             os.makedirs(self.outputPath)
 
-    def login(self, user_name):
+    def login(self):
         if not os.path.exists(self.jobDir):
             os.makedirs(self.jobDir)
         login_success = False
-        if (user_name=="NONE"):
-            logger.info('Username is needed')
+        if (self.host_userName=='cigi-gisolve'):
+            try:
+                self.__client.connect(self.host, username=self.host_userName, key_filename='/opt/cybergis/.gisolve.key')
+                self.__sftp=self.__client.open_sftp()
+            except Exception as e:
+                logger.warn("can not connect to server " + self.host + ", caused by " + str(e))
+                exit()
+            else:
+                logger.info('Successfully logged in as %s'%self.host_userName)        
+                login_success = True
+
         else:
             while not login_success:
                 pw=getpass(prompt='Password')
@@ -249,7 +269,7 @@ class Summa():
  
     def __submitUI(self, preview=True, monitor=True):
         fileList=listExeutables()
-        arr = self.__runCommand("show_accounts | grep '%s' | awk '{print $2}' "%self.host_userName)
+        arr = self.__runCommand("show_accounts | grep '%s' | awk '{print $2}' "%self.host_userName) if self.host.startswith('comet') else "N/A\n"
         locationList = []
         word = ""
         for char in arr:
@@ -400,7 +420,28 @@ class Summa():
             for w in postSubmission:
                 w.disabled = self.editMode
                             
-        
+        def gen_summa_dir_name():
+            if self.remoteSummaDir is None:
+                stdout = "Found\n"
+                ans = "nothing"
+                while (stdout == "Found\n"):
+                    ans = ("/home/" if self.host.startswith('comet') else '/data/keeling/a/')+ self.host_userName + "/summatest_" + str(random.randint(1,10000))
+                    stdout = self.__runCommandBlock("[ -d " + ans + " ] && echo 'Found'")
+                self.remoteSummaDir = ans
+
+            return self.remoteSummaDir
+
+        def upload_task():
+            assert self.remoteSummaDir is not None
+            ans = self.remoteSummaDir
+            summaTestDirPath = "/opt/cybergis/summatest"
+            basename = os.path.basename(summaTestDirPath)
+            basezip = shutil.make_archive(basename, 'zip', summaTestDirPath)
+            self.__sftp.put(basezip, ans+'.zip')
+
+            self.__runCommandBlock('unzip ' + ans + '.zip -d ' + ans)
+            self.__runCommandBlock('rm '+ ans + '.zip')
+
         def click_preview(b):
             self.jobName = jobName.value
         #self.summaFolder = summaFolder.value
@@ -409,7 +450,8 @@ class Summa():
             self.ppn = int(ppn.value)
             self.walltime = int(float(walltime.value))
             self.num_times_exe = int(float(num_times_exe.value)) if num_times_exe.value.isdigit() else '' 
-            self.exe = 'for i in `seq 1 ' + str(nTimes.value) +'`\ndo\nsingularity exec summa.simg ./runSummaTest.sh $i &\ndone\n wait'
+            gen_summa_dir_name()
+            self.exe = 'for i in `seq 1 ' + str(nTimes.value) +'`\ndo\nsingularity exec summa.simg bash -c "'+ ('' if self.host.startswith('comet') else 'cd %s && '%(self.remoteSummaDir.replace('/data/keeling/a/','/home/'))) + './installSummaTest.sh %d && ./runSummaTest.sh $i" &\ndone\n\nwait'%nTimes.value
             self.Allocation = location.value
 
             jobview.value=self.job_template.substitute(
@@ -441,9 +483,10 @@ class Summa():
                 return
             
             result = self.__runCommand('date; qstat -a %s | sed 1,3d '%self.jobId)                
+            self.startTime = 0
             
             if 'Unknown Job Id Error' in result:
-                result = 'Job %s is finished'%self.jobId
+                result = 'Job %s finished'%self.jobId
                 est_time= '\n'*7
                 
             else:
@@ -454,12 +497,12 @@ class Summa():
                     self.queueTime = self.startTime - self.submissionTime
                     #output.value+='<br>Job %s started after queuing for %.1fs'%(self.jobId,self.queueTime)
                     output.value+='<br>Job Running'
-                if currentStatus == 'U':
+                if currentStatus == 'C':
                     self.jobStatus = 'finished'
-                    result = 'Job %s is finished'%self.jobId
+                    result = 'Job %s finished'%self.jobId
                     est_time= '\n'*7
-                    self.endTime=time.time()
-                    self.runTime=self.endTime-self.startTime
+                    #self.endTime=time.time()
+                    #self.runTime=(self.endTime-self.startTime) if self.startTime > 0 else 0
                     #output.value+='<br>Job %s finished after running for %.1fs.'%(self.jobId, self.runTime)
                     #output.value+='<br>Total walltime spent: %.1fs</font>'%(self.queueTime+self.runTime)
                     output.value+='<br>Preparing for the result:</font>'
@@ -520,24 +563,6 @@ class Summa():
             self.__client.exec_command("rm -r " + self.remoteSummaDir)
             switchMode()
         
-        def summa_dir_name():
-            stdout = "Found\n"
-            ans = "nothing"
-            summaTestDirPath = "/opt/cybergis/summatest"
-            while (stdout == "Found\n"):
-                ans = "/home/" + self.host_userName + "/summatest_" + str(random.randint(1,10000))
-                stdout = self.__runCommandBlock("[ -d " + ans + " ] && echo 'Found'")
-        
-            basename = os.path.basename(summaTestDirPath)
-            basezip = shutil.make_archive(basename, 'zip', summaTestDirPath)
-            self.__sftp.put(basezip, ans+'.zip')
-
-            self.__runCommandBlock('unzip ' + ans + '.zip -d ' + ans)
-            self.__runCommandBlock('rm '+ ans + '.zip')
-            
-            return ans
-
-
         def replaceAll(file,searchExp,replaceExp):
             for line in fileinput.input(file, inplace=1):
                 if searchExp in line:
@@ -547,7 +572,7 @@ class Summa():
         def submit(b):
             output.value += '<br>Uploading the task\n</font>'
             #output.value += '<br>Waiting in the queue\n</font>'
-            self.remoteSummaDir = summa_dir_name()
+            upload_task()
             filename = '%s.sh'%jobName.value
             
             jobview.value=self.job_template.substitute(
@@ -582,8 +607,8 @@ class Summa():
             self.pbs = self.jobDir + '/' + filename
             self.__sftp.put(self.pbs, self.remoteSummaDir + '/run.qsub')
         #output.value += '<br>Installing the task\n</font>'
-            self.__runCommandBlock('cd ' + self.remoteSummaDir + ' && bash ./installSummaTest.sh '+ str(self.num_times_exe))
-            self.jobId = self.__runCommand('cd '+ self.remoteSummaDir + ' && qsub run.qsub').strip()
+            #print(self.__runCommandBlock('cd ' + self.remoteSummaDir + ' && bash ./installSummaTest.sh '+ str(nTimes.value)))
+            self.jobId = self.__runCommand('cd '+ self.remoteSummaDir + ' && '+ ('qsub' if self.host.startswith('comet') else 'sbatch') + ' run.qsub').strip().split(' ')[-1]
             if ('ERROR' in self.jobId or 'WARN' in self.jobId):
                 logger.warn('submit job error: %s'%self.jobId)
                 exit()

@@ -11,6 +11,7 @@ class Floret(object):
     def __init__(self, title, name):
         self.name=name
         self.title=title
+        self.extraheader=''
         self.layers = []
         self.bottom = -90
         self.left = -180
@@ -49,7 +50,12 @@ class Floret(object):
         return self
 
     def addGeoJson(self, name, path):
-        self.layers.append(('GeoJson', name, path, self.getGeoJsonBbox(path)))
+        new_path = path+'.floret'
+        self.extraheader += '<script src="%s"></script>\n'%new_path
+        var_name = path.split('/')[-1].split('.')[0].replace('-','_')
+        self.layers.append(('GeoJson', name, var_name, self.getGeoJsonBbox(path)))
+        with open(new_path,'w') as output:
+            output.write('var %s = %s;'%(var_name,open(path).read()))
         return self
 
     def __fitBounds(self):
@@ -66,7 +72,7 @@ class Floret(object):
         elif layer[0]=='WMS':
             return "L.tileLayer.wms('%s?', {layers: '%s', format: 'image/png',transparent: true})"%(layer[2],layer[3])
         else:
-            return "new L.GeoJSON.AJAX('%s')"%layer[2]
+            return "L.geoJSON(%s)"%(layer[2].split('.')[0])
 
     def __render(self):
         with open('/opt/cybergis/leaflet_template.html') as input:
@@ -74,6 +80,7 @@ class Floret(object):
 
         self.__fitBounds()
         self.html=temp.substitute(
+            extraheader=self.extraheader,
             center=str(self.center),
             zoom_start=self.zoom_start,
             title=self.title,

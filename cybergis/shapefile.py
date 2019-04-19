@@ -13,7 +13,7 @@ import sys
 import time
 import array
 import math
-from rdp import rdp
+#from rdp import rdp
 from pyproj import Proj, transform
 #
 # Constants for shape types
@@ -941,9 +941,9 @@ class Feature:
             self.nowIndex += 1
             return self.shpfile.shape(self.id).points[self.nowIndex]
     
-    def DPSimplify(self, epsilon):
-        pp = list(self.shp.parts) + []
-        self.shp.points, self.shp.parts=DPSimplify(self.p, epsilon, self.shp.parts)
+    #def DPSimplify(self, epsilon):
+    #    pp = list(self.shp.parts) + []
+    #    self.shp.points, self.shp.parts=DPSimplify(self.p, epsilon, self.shp.parts)
 
     def area(self):
 	    """
@@ -1409,10 +1409,10 @@ class Editor(Writer):
         with open(outFile,'w') as output:
             output.write('\n'.join(''.join('%f %f\n'%(p[0],p[1]) for p in self[i].p) for i in range(self.lens)))
     
-    def DPSimplify(self, epsilon):
-        for i in range(self.lens):
-            self[i].DPSimplify(epsilon)
-        return self
+    #def DPSimplify(self, epsilon):
+    #    for i in range(self.lens):
+    #        self[i].DPSimplify(epsilon)
+    #    return self
     
 def areaOf(polygon,parts=[0]):
     pp = list(parts) + [len(polygon)]
@@ -1440,13 +1440,13 @@ def lengthOf(polygon, parts=[0]):
 def distp2p(a,b):
     return math.sqrt((a[0]-b[0])**2+(a[1]-b[1])**2)
 
-def DPSimplify(polygon, epsilon, parts=[0]):
-    pp = list(parts) + [len(polygon)]
-    res = [rdp(polygon[pp[i]:pp[i+1]], epsilon) for i in range(len(pp) - 1)]
-    newparts = [0] * len(parts)
-    for i in range(len(parts)-1):
-        newparts[i+1] = newparts[i] + len(res[i])        
-    return [p for pts in res for p in pts], newparts
+#def DPSimplify(polygon, epsilon, parts=[0]):
+#    pp = list(parts) + [len(polygon)]
+#    res = [rdp(polygon[pp[i]:pp[i+1]], epsilon) for i in range(len(pp) - 1)]
+#    newparts = [0] * len(parts)
+#    for i in range(len(parts)-1):
+#        newparts[i+1] = newparts[i] + len(res[i])        
+#    return [p for pts in res for p in pts], newparts
     
 def mergeshp(e1,e2):
     """ merge editor1 and editor2 into one shapefile if their fields and
