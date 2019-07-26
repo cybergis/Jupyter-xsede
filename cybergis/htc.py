@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 from __future__ import print_function
 import warnings
+
+import ipywidgets as widgets
+
 warnings.filterwarnings("ignore", message="numpy.dtype size changed")
 from ipywidgets import *
 from IPython.display import display
@@ -141,7 +144,7 @@ def tilemap(tif, name, overwrite=False, overlay=None,tilelvl=[9,13]):
 class htc():
     def __init__(self,HOST_NAME="localhost", user_name = "NONE", task_path="" ,jobName='Test',nTimes=1,
         nNodes=1,ppn=1,isGPU=False,walltime=10,exe='date',snow_freeze_scale=50.0000, tempRangeTimestep=2.000, rootDistExp1=0.0, rootDistExp2=1.0,
-        k_soil1=1.0, k_soil2=100, qSurfScale1=1.0, qSurfScale2=100.0, summerLAI1=0.01, summerLAI2=10.0, step1=1, step2=1, step3=1, step4=1, curr_count=0):
+        k_soil1=1.0, k_soil2=100, qSurfScale1=1.0, qSurfScale2=100.0, summerLAI1=0.01, summerLAI2=10.0, step1=1, step2=1, step3=1, step4=1, summaoption=3):
             
         if (HOST_NAME=="comet" or HOST_NAME=="Comet"):
             HOST_NAME = 'comet.sdsc.xsede.org'
@@ -183,6 +186,8 @@ class htc():
         self.step2=step2
         self.step3=step3
         self.step4=step4
+
+        self.summaoption=summaoption
 
 
         self.num_times_exe = 1
@@ -406,7 +411,7 @@ class htc():
 
         s1=FloatSlider(
             value=self.step1,
-            min=0.0,
+            min=0.1,
             max=1.0,
             step=0.1,
             continuous_update=False,
@@ -486,6 +491,12 @@ class htc():
             readout=True,
             readout_format='d',
             slider_color='white'
+        )
+
+        summa_option= widgets.Dropdown(
+            options = [('BallBerry', 1), ('Jarvis', 2), ('simpleResistance', 3)],
+            value=self.summaoption,
+            disabled=False,
         )
 
 
@@ -793,6 +804,27 @@ class htc():
 
         def submit(b):
 
+            summaoptionfilename='/home/drew/summa/Jupyter-xsede/summatest/summaTestCases/settings_org/wrrPaperTestCases/figure07/summa_zDecisions_riparianAspenSimpleResistance.txt'
+            curr_opt = summa_option.value
+            # 1: BallBerry 2: Jarvis 3:simpleResistance
+
+            summasearchEXP = "stomResist"
+
+            firstexp ="stomResist                      BallBerry       ! (06) choice of function for stomatal resistance\n"
+            secondexp ="stomResist                      Jarvis          ! (06) choice of function for stomatal resistance\n"
+            thirdexp ="stomResist                      simpleResistance ! (06) choice of function for stomatal resistance\n"
+
+            print("My option is")
+            print(curr_opt)
+            if curr_opt==1:
+                print("I am BallBerry")
+                replaceAll(summaoptionfilename, summasearchEXP, firstexp)
+            if curr_opt==2:
+                print("I am Jarvis")
+                replaceAll(summaoptionfilename, summasearchEXP, secondexp)
+            if curr_opt==3:
+                print("I am simpleResistance")
+                replaceAll(summaoptionfilename, summasearchEXP, thirdexp)
 
             #temp = trt.value
             #snow_freeze_scale = sfc.value
@@ -924,7 +956,7 @@ class htc():
             Labeled('step',s1),
             Labeled('k_soil, *e-7',ks),
             Labeled('step, *e-7',s2),
-            #Labeled('qSurfScale',qss),
+            Labeled('SUMMA options',summa_option),
             #Labeled('step',s3),
             #Labeled('summerLAI',sla),
             #Labeled('step',s4),
