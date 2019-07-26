@@ -2,6 +2,8 @@ import logging
 import os
 import shutil
 import paramiko
+import time
+
 
 
 class SSHComm(object):
@@ -58,12 +60,24 @@ class SSHComm(object):
         return ans
 
     def downloadFile(self, localFolder, localFilename, remoteFolder, remoteFilename):
+        localFolder = localFolder.strip()
+        localFilename = localFilename.strip()
+        remoteFolder = remoteFolder.strip()
+        remoteFilename = remoteFilename.strip()
+
         print(localFolder, localFilename, remoteFolder, remoteFilename)
         if not os.path.exists(localFolder):
             os.makedirs(localFolder)
-        self.sftp.get(os.path.join(remoteFolder, remoteFilename), os.path.join(localFolder, localFilename))
+        try:
+            self.sftp.get(str(os.path.join(remoteFolder, remoteFilename)), str(os.path.join(localFolder, localFilename)))
             #self.sftp.get(remotePath, os.path.join(localPath, filename))
-
+        except:
+            print("I am doing it again")
+            time.sleep(10)
+            try:
+                self.sftp.get(str(os.path.join(remoteFolder, remoteFilename)), str(os.path.join(localFolder, localFilename)))
+            except:
+                print("Cant download")
     def downloadFolder(self, localPath, remotePath):
         '''
         Recursive download folder content
@@ -71,6 +85,8 @@ class SSHComm(object):
         :param remotePath:
         :return:
         '''
+        localPath = localPath.strip()
+        remotePath = remotePath.strip()
         fs = self.runCommandBlock("ls " + remotePath)
         print(localPath)
         print(remotePath)

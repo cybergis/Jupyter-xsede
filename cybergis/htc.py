@@ -197,7 +197,7 @@ class htc():
         #    self.job_template=Template(input.read())
         self.job_template=Template(SUMMA_TEMPLATE if self.host.startswith('comet') else KEELING_SUMMA_TEMPLATE)
         self.login()
-        self.outputPath="./output"
+        self.outputPath = "/home/drew/summa/Jupyter-xsede/output"
         self.outputFiles = {}
         if not os.path.exists(self.outputPath):
             os.makedirs(self.outputPath)
