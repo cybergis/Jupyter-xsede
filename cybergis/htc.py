@@ -768,6 +768,7 @@ class htc():
             os.makedirs(output_files)
             output.value += '<br>Downloading outputs from %s to %s</br>' % (remoteSummaDir, output_files)
             comm_obj.sftp.get(remoteSummaDir + "/Test.stdout", output_files + "/out.stdout")
+            comm_obj.downloadFile(output_files, "out.stderr", remoteSummaDir, "Test.stderr",)
             comm_obj.downloadFolder(output_files, remoteSummaDir + "/summaTestCases/output")
             output.value += '<br>The output should be in your Jupyter <a href="output/">login folder</a></font>'
             #   filesSelector = FileBrowser(output_files)

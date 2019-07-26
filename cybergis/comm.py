@@ -57,10 +57,11 @@ class SSHComm(object):
             exit()
         return ans
 
-    def downloadFile(self, localPath, remotePath, filename):
-        if not os.path.exists(localPath):
-            os.makedirs(localPath)
-            self.sftp.get(remotePath, localPath + filename)
+    def downloadFile(self, localFolder, localFilename, remoteFolder, remoteFilename):
+        print(localFolder, localFilename, remoteFolder, remoteFilename)
+        if not os.path.exists(localFolder):
+            os.makedirs(localFolder)
+        self.sftp.get(os.path.join(remoteFolder, remoteFilename), os.path.join(localFolder, localFilename))
             #self.sftp.get(remotePath, os.path.join(localPath, filename))
 
     def downloadFolder(self, localPath, remotePath):
@@ -71,18 +72,19 @@ class SSHComm(object):
         :return:
         '''
         fs = self.runCommandBlock("ls " + remotePath)
+        print(localPath)
+        print(remotePath)
 
         for f in fs.split('\n'):
             f.strip('\n')
             if not f:
                 continue
-            nextRemotePath = remotePath + '/' + f
-            nextLocalPath = localPath + '/' + f
+            nextRemotePath = os.path.join(remotePath, f)
+            nextLocalPath = os.path.join(localPath, f)
             if 'file!' in self.runCommandBlock("if [ -f " + nextRemotePath + " ]; then echo 'file!'; fi"):
-                self.downloadFile(nextLocalPath, nextRemotePath, f)
-                continue
+                self.downloadFile(localPath, f, remotePath, f)
             else:
-                if os.path.exists(nextLocalPath):
-                    shutil.rmtree(nextLocalPath)
-                os.makedirs(nextLocalPath)
+                # if os.path.exists(nextLocalPath):
+                #     shutil.rmtree(nextLocalPath)
+                # os.makedirs(nextLocalPath)
                 self.downloadFolder(nextLocalPath, nextRemotePath)
