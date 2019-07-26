@@ -406,21 +406,21 @@ class htc():
 
         s1=FloatSlider(
             value=self.step1,
-            min=0,
-            max=1,
+            min=0.0,
+            max=1.0,
             step=0.1,
             continuous_update=False,
             orientation='horizontal',
             readout=True,
-            readout_format='d',
+            readout_format='.1f',
             slider_color='white'
         )
 
         ks=FloatRangeSlider(
             value=[float(self.k_soil1), float(self.k_soil2)],
-            min=0.0,
+            min=1.0,
             max=100.0,
-            step=0.1,
+            step=1,
             continuous_update=False,
             orientation='horizontal',
             readout=True,
@@ -819,67 +819,80 @@ class htc():
             Param_Trial = nc.Dataset(filepath,'r+')
             output.value += '<br>Hello ya ya\n</font>'
             name_value = Param_Trial.variables['rootDistExp'][:]
+            name_value_2=Param_Trial.variables['k_soil'][:]
             #Param_Trial
             min_para = min(rde.value[0],rde.value[1])
             max_para = max(rde.value[0],rde.value[1])
             delta = s1.value
-            output.value += '<br>Hi\n</font>'
+
+            min_para_2= min(ks.value[0],ks.value[1])
+            max_para_2= max(ks.value[0],ks.value[1])
+            delta_2 = s2.value
+
             for i in np.arange(min_para, max_para+delta, delta):
-                name_value[0]=i
-                if i > max_para:
-                    i = max_para
-                Param_Trial = nc.Dataset(filepath,'r+')
-                Param_Trial.variables['rootDistExp'][:] = name_value
+                for j in np.arange(min_para_2, max_para_2+delta_2, delta_2):
 
-                output.value += '<br>Finish tuning the parameter & Uploading the task\n</font>'
-            #output.value += '<br>Waiting in the queue\n</font>'
-                upload_task()
-                filename = '%s.sh'%jobName.value
-            
-                jobview.value=self.job_template.substitute(
-                    allocation = location.value,
-                    jobname  = jobName.value, 
-                    n_times  = nTimes.value,
-                    n_nodes  = int(nTimes.value/20+1), 
-                    is_gpu   = isGPU.value.lower().replace(' ',''),
-                    ppn      = 20,
-                    walltime = '00:%02d:00'%int(float(walltime.value)), 
-                    username = self.userName, 
-                    stdout   = self.remoteSummaDir + "/" + jobName.value + '.stdout',
-                    stderr   = self.remoteSummaDir + "/" + jobName.value + '.stderr',
-                    hpcPath  = self.hpcRoot,
-                    modules  = 'module load singularity',#+' '.join(list(self.modules)),
-                    exe      = self.exe
-                )
+                    name_value[0]=i
+                    name_value_2[0]=j*0.0000001
+                    if i > max_para:
+                        i = max_para
+                    if j > max_para_2:
+                        j = max_para_2*0.0000001
+                    Param_Trial = nc.Dataset(filepath,'r+')
+                    Param_Trial.variables['rootDistExp'][:] = name_value
+                    Param_Trial.variables['k_soil'][:]=name_value_2
 
-                #self.nTimes=int(x1*x2*x3*x4)
-                output.value += '<br>Installing the task\n</font>'
-                output.value += '<br>'
-                #for loop in range(0, int(x1*x2*x3*x4)):
-                #    output.value+='*'
 
-                with open(self.jobDir + '/' + filename,'w') as out:
-                    out.write(jobview.value)
-                self.pbs = self.jobDir + '/' + filename
-                self.__sftp.put(self.pbs, self.remoteSummaDir + '/run.qsub')
-                output.value += '<br>the current folder is</font>'
-                output.value += self.remoteSummaDir
-                #print(self.__runCommandBlock('cd ' + self.remoteSummaDir + ' && bash ./installSummaTest.sh '+ str(nTimes.value)))
-                self.jobId = self.__runCommand('cd '+ self.remoteSummaDir + ' && '+ ('qsub' if self.host.startswith('comet') else 'sbatch') + ' run.qsub').strip().split(' ')[-1]
-                if ('ERROR' in self.jobId or 'WARN' in self.jobId):
-                    output.value += '<br>Error submitting the task\n</font>'
-                    logger.warn('submit job error: %s'%self.jobId)
-                    exit()
-                output.value += '<br>I am here</font>'
-                self.submissionTime=time.time()
-                self.jobStatus = 'queuing'
-                #output.value+='<br>Job %s submitted at %s \n</font>'%(self.jobId,time.ctime())
-                switchMode()
 
-                t = Thread(target=monitorDeamon2, args=(self.host, self.host_userName, self.pw,
-                                                      self.jobStatus, self.jobId, self.outputPath,
-                                                      self.jobName, self.remoteSummaDir))
-                t.start()
+                    output.value += '<br>Finish tuning the parameter & Uploading the task\n</font>'
+                #output.value += '<br>Waiting in the queue\n</font>'
+                    upload_task()
+                    filename = '%s.sh'%jobName.value
+
+                    jobview.value=self.job_template.substitute(
+                        allocation = location.value,
+                        jobname  = jobName.value,
+                        n_times  = nTimes.value,
+                        n_nodes  = int(nTimes.value/20+1),
+                        is_gpu   = isGPU.value.lower().replace(' ',''),
+                        ppn      = 20,
+                        walltime = '00:%02d:00'%int(float(walltime.value)),
+                        username = self.userName,
+                        stdout   = self.remoteSummaDir + "/" + jobName.value + '.stdout',
+                        stderr   = self.remoteSummaDir + "/" + jobName.value + '.stderr',
+                        hpcPath  = self.hpcRoot,
+                        modules  = 'module load singularity',#+' '.join(list(self.modules)),
+                        exe      = self.exe
+                    )
+
+                    #self.nTimes=int(x1*x2*x3*x4)
+                    output.value += '<br>Installing the task\n</font>'
+                    output.value += '<br>'
+                    #for loop in range(0, int(x1*x2*x3*x4)):
+                    #    output.value+='*'
+
+                    with open(self.jobDir + '/' + filename,'w') as out:
+                        out.write(jobview.value)
+                    self.pbs = self.jobDir + '/' + filename
+                    self.__sftp.put(self.pbs, self.remoteSummaDir + '/run.qsub')
+                    output.value += '<br>the current folder is</font>'
+                    output.value += self.remoteSummaDir
+                    #print(self.__runCommandBlock('cd ' + self.remoteSummaDir + ' && bash ./installSummaTest.sh '+ str(nTimes.value)))
+                    self.jobId = self.__runCommand('cd '+ self.remoteSummaDir + ' && '+ ('qsub' if self.host.startswith('comet') else 'sbatch') + ' run.qsub').strip().split(' ')[-1]
+                    if ('ERROR' in self.jobId or 'WARN' in self.jobId):
+                        output.value += '<br>Error submitting the task\n</font>'
+                        logger.warn('submit job error: %s'%self.jobId)
+                        exit()
+                    output.value += '<br>I am here</font>'
+                    self.submissionTime=time.time()
+                    self.jobStatus = 'queuing'
+                    #output.value+='<br>Job %s submitted at %s \n</font>'%(self.jobId,time.ctime())
+                    switchMode()
+
+                    t = Thread(target=monitorDeamon2, args=(self.host, self.host_userName, self.pw,
+                                                          self.jobStatus, self.jobId, self.outputPath,
+                                                          self.jobName, self.remoteSummaDir))
+                    t.start()
                 
 
                 #monitorDeamon()
@@ -899,7 +912,7 @@ class htc():
         newJob.on_click(click_newJob)
         submitForm=VBox([
             Title(),
-            Labeled('Allocation', location),
+            #Labeled('Allocation', location),
                 #Labeled('Job name', jobName),
             #Labeled('No. Times', nTimes),
                 #Labeled('Executable', entrance),
@@ -909,8 +922,8 @@ class htc():
             Labeled('Walltime (min)', walltime),
             Labeled('rootDistExp',rde),
             Labeled('step',s1),
-            #Labeled('k_soil',ks),
-            #Labeled('step',s2),
+            Labeled('k_soil, *e-7',ks),
+            Labeled('step, *e-7',s2),
             #Labeled('qSurfScale',qss),
             #Labeled('step',s3),
             #Labeled('summerLAI',sla),
