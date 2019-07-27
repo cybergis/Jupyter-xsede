@@ -228,6 +228,7 @@ class SummaHTC():
             else:
                 logger.info('Successfully logged in as %s'%self.host_userName)        
                 login_success = True
+                self.pw = None
 
         else:
             while not login_success:
