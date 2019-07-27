@@ -4,7 +4,7 @@ from .shapefile import Editor
 #from .topolens import TopoLens
 from .summa import Summa
 from .taudem import TauDEM
-from .htc import htc
+from .htc import SummaHTC
 from .comm import SSHComm
 #
 #def main():
