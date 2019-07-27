@@ -141,10 +141,15 @@ def tilemap(tif, name, overwrite=False, overlay=None,tilelvl=[9, 13]):
         output.write(s)
     return IFrame('%s/leaflet.html'%id, width='1000',height='600')
 
+
 class htc():
-    def __init__(self, HOST_NAME="localhost", user_name="NONE", task_name="", workspace=os.path.join(os.getcwd(), "workspace"), jobName='Test', nTimes=1,
-        nNodes=1,ppn=1,isGPU=False,walltime=10,exe='date',snow_freeze_scale=50.0000, tempRangeTimestep=2.000, rootDistExp1=0.0, rootDistExp2=1.0,
-        k_soil1=1.0, k_soil2=100, qSurfScale1=1.0, qSurfScale2=100.0, summerLAI1=0.1, summerLAI2=10.0, step1=1, step2=1, step3=1, step4=1, summaoption=3):
+
+    def __init__(self, HOST_NAME="localhost", user_name="NONE", task_name="",
+                 workspace="./workspace", summafolder="./summatest",
+                 jobName='Test', nTimes=1, nNodes=1,ppn=1,isGPU=False,walltime=10,
+                 exe='date',snow_freeze_scale=50.0000, tempRangeTimestep=2.000, rootDistExp1=0.0, rootDistExp2=1.0,
+                 k_soil1=1.0, k_soil2=100, qSurfScale1=1.0, qSurfScale2=100.0, summerLAI1=0.1,
+                 summerLAI2=10.0, step1=1, step2=1, step3=1, step4=1, summaoption=3):
             
         if (HOST_NAME=="comet" or HOST_NAME=="Comet"):
             HOST_NAME = 'comet.sdsc.xsede.org'
@@ -202,7 +207,8 @@ class htc():
         #    self.job_template=Template(input.read())
         self.job_template=Template(SUMMA_TEMPLATE if self.host.startswith('comet') else KEELING_SUMMA_TEMPLATE)
         self.login()
-        self.outputPath = os.path.join(workspace, "output")
+        self.outputPath = os.path.abspath(os.path.join(workspace, "output"))
+        self.summatestPath = os.path.abspath(summafolder)
         self.outputFiles = {}
         if not os.path.exists(self.outputPath):
             os.makedirs(self.outputPath)
@@ -571,7 +577,7 @@ class htc():
             output.value+=self.remoteSummaDir
             assert self.remoteSummaDir is not None
             ans = self.remoteSummaDir
-            summaTestDirPath = "/home/drew/summa/Jupyter-xsede/summatest"
+            summaTestDirPath = self.summatestPath
             basename = os.path.basename(summaTestDirPath)
             basezip = shutil.make_archive(basename, 'zip', summaTestDirPath)
             output.value+='<br>Try to upload the folder</font>'
@@ -804,7 +810,8 @@ class htc():
 
         def submit(b):
 
-            summaoptionfilename='./summatest/summaTestCases/settings_org/wrrPaperTestCases/figure07/summa_zDecisions_riparianAspenSimpleResistance.txt'
+            summaoptionfilename=os.path.join(self.summatestPath,
+                                            'summaTestCases/settings_org/wrrPaperTestCases/figure07/summa_zDecisions_riparianAspenSimpleResistance.txt')
             curr_opt = summa_option.value
             # 1: BallBerry 2: Jarvis 3:simpleResistance
 
