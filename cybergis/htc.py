@@ -66,14 +66,14 @@ logger.setLevel(logging.DEBUG)
 
 
 USERNAME = os.environ['USER']
-CONF_DIR='.hpc_conf'
-CONF_MOD=int('700', 8) # exclusive access
+CONF_DIR = '.hpc_conf'
+CONF_MOD = int('700', 8) # exclusive access
 #ROGER_PRJ='/projects/class/jhub/users'
 #JUPYTER_HOME='/mnt/jhub/users'
-ROGER_PRJ='/projects/jupyter'
+ROGER_PRJ = '/projects/jupyter'
 
 HPC_PRJ = '~/projects/jupyter'
-JUPYTER_HOME=os.path.expanduser('~')
+JUPYTER_HOME = os.path.expanduser('~')
 
 #password security
 def encrypt(plaintext):
@@ -108,7 +108,7 @@ def listSummaOutput(folder='./output/'):
              if os.path.isfile(filename)]
 
 
-def tilemap(tif, name, overwrite=False, overlay=None,tilelvl=[9,13]):
+def tilemap(tif, name, overwrite=False, overlay=None,tilelvl=[9, 13]):
     id=hashlib.sha1(name).hexdigest()[:10]
     if overwrite:
         os.system('rm -rf %s'%id)
@@ -142,9 +142,9 @@ def tilemap(tif, name, overwrite=False, overlay=None,tilelvl=[9,13]):
     return IFrame('%s/leaflet.html'%id, width='1000',height='600')
 
 class htc():
-    def __init__(self,HOST_NAME="localhost", user_name = "NONE", task_path="" ,jobName='Test',nTimes=1,
+    def __init__(self, HOST_NAME="localhost", user_name="NONE", task_name="", workspace=os.path.join(os.getcwd(), "workspace"), jobName='Test', nTimes=1,
         nNodes=1,ppn=1,isGPU=False,walltime=10,exe='date',snow_freeze_scale=50.0000, tempRangeTimestep=2.000, rootDistExp1=0.0, rootDistExp2=1.0,
-        k_soil1=1.0, k_soil2=100, qSurfScale1=1.0, qSurfScale2=100.0, summerLAI1=0.01, summerLAI2=10.0, step1=1, step2=1, step3=1, step4=1, summaoption=3):
+        k_soil1=1.0, k_soil2=100, qSurfScale1=1.0, qSurfScale2=100.0, summerLAI1=0.1, summerLAI2=10.0, step1=1, step2=1, step3=1, step4=1, summaoption=3):
             
         if (HOST_NAME=="comet" or HOST_NAME=="Comet"):
             HOST_NAME = 'comet.sdsc.xsede.org'
@@ -159,7 +159,7 @@ class htc():
         except Exception as e:
             logger.warn("error when create paramiko connection, caused by " + str(e))
             exit() 
-        self.homeDir = JUPYTER_HOME
+        self.homeDir = workspace
         self.jobDir = self.homeDir + '/.jobs'
         self.jobName = jobName
         self.nNodes = nNodes
@@ -202,7 +202,7 @@ class htc():
         #    self.job_template=Template(input.read())
         self.job_template=Template(SUMMA_TEMPLATE if self.host.startswith('comet') else KEELING_SUMMA_TEMPLATE)
         self.login()
-        self.outputPath = "/home/drew/summa/Jupyter-xsede/output"
+        self.outputPath = os.path.join(workspace, "output")
         self.outputFiles = {}
         if not os.path.exists(self.outputPath):
             os.makedirs(self.outputPath)

@@ -61,7 +61,7 @@ fi
 #mkdir -p ${OUTPUT_PATH}/wrrPaperTestCases/figure05
 #mkdir -p ${OUTPUT_PATH}/wrrPaperTestCases/figure06
 mkdir -p ${OUTPUT_PATH}/wrrPaperTestCases/figure07
-mkdir -p ${OUTPUT_PATH}/wrrPaperTestCases/figure08
+#mkdir -p ${OUTPUT_PATH}/wrrPaperTestCases/figure08
 #mkdir -p ${OUTPUT_PATH}/wrrPaperTestCases/figure09
 
 chmod -R 777 ${OUTPUT_PATH}

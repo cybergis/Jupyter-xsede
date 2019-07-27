@@ -64,13 +64,13 @@ fi
 #${SUMMA_EXE} -p never -s _senatorVariableDecayRate  -m ${SUMMA_SETTING}/wrrPaperTestCases/figure06/summa_fileManager_senatorVariableDecayRate.txt
 
 # Figure 7: Sensitivity of ET to the stomatal resistance parameterization (Aspen stand at Reynolds Mountain East)
-${SUMMA_EXE} -p never -s _jarvis           -m ${SUMMA_SETTING}/wrrPaperTestCases/figure07/summa_fileManager_riparianAspenJarvis.txt
-${SUMMA_EXE} -p never -s _ballBerry        -m ${SUMMA_SETTING}/wrrPaperTestCases/figure07/summa_fileManager_riparianAspenBallBerry.txt
+#${SUMMA_EXE} -p never -s _jarvis           -m ${SUMMA_SETTING}/wrrPaperTestCases/figure07/summa_fileManager_riparianAspenJarvis.txt
+#${SUMMA_EXE} -p never -s _ballBerry        -m ${SUMMA_SETTING}/wrrPaperTestCases/figure07/summa_fileManager_riparianAspenBallBerry.txt
 ${SUMMA_EXE} -p never -s _simpleResistance -m ${SUMMA_SETTING}/wrrPaperTestCases/figure07/summa_fileManager_riparianAspenSimpleResistance.txt
 
 # Figure 8: Sensitivity of ET to the root distribution and the baseflow parameterization (Aspen stand at Reynolds Mountain East)
 #  (NOTE: baseflow simulations conducted as part of Figure 9)
-${SUMMA_EXE} -p never -s _perturbRoots -m ${SUMMA_SETTING}/wrrPaperTestCases/figure08/summa_fileManager_riparianAspenPerturbRoots.txt
+#${SUMMA_EXE} -p never -s _perturbRoots -m ${SUMMA_SETTING}/wrrPaperTestCases/figure08/summa_fileManager_riparianAspenPerturbRoots.txt
 
 # Figure 9: Simulations of runoff using different baseflow parameterizations (Reynolds Mountain East)
 #${SUMMA_EXE} -p never -s _1dRichards          -m ${SUMMA_SETTING}/wrrPaperTestCases/figure09/summa_fileManager_1dRichards.txt
