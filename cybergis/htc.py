@@ -804,7 +804,7 @@ class htc():
 
         def submit(b):
 
-            summaoptionfilename='/home/drew/summa/Jupyter-xsede/summatest/summaTestCases/settings_org/wrrPaperTestCases/figure07/summa_zDecisions_riparianAspenSimpleResistance.txt'
+            summaoptionfilename='./summatest/summaTestCases/settings_org/wrrPaperTestCases/figure07/summa_zDecisions_riparianAspenSimpleResistance.txt'
             curr_opt = summa_option.value
             # 1: BallBerry 2: Jarvis 3:simpleResistance
 
