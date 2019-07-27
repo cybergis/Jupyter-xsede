@@ -142,9 +142,9 @@ def tilemap(tif, name, overwrite=False, overlay=None,tilelvl=[9, 13]):
     return IFrame('%s/leaflet.html'%id, width='1000',height='600')
 
 
-class htc():
+class SummaHTC():
 
-    def __init__(self, HOST_NAME="localhost", user_name="NONE", task_name="",
+    def __init__(self, HOST_NAME="localhost", user_name="", task_name="",
                  workspace="./workspace", summafolder="./summatest",
                  jobName='Test', nTimes=1, nNodes=1,ppn=1,isGPU=False,walltime=10,
                  exe='date',snow_freeze_scale=50.0000, tempRangeTimestep=2.000, rootDistExp1=0.0, rootDistExp2=1.0,
