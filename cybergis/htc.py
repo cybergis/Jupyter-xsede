@@ -32,6 +32,8 @@ import sys
 import math
 import netCDF4 as nc
 import numpy as np
+from datetime import datetime
+import uuid
 
 #from FileBrowser import FileBrowser
 # logger configuration 
@@ -146,10 +148,10 @@ class SummaHTC():
 
     def __init__(self, HOST_NAME="localhost", user_name="", task_name="",
                  workspace="./workspace", summafolder="./summatest",
-                 jobName='Test', nTimes=1, nNodes=1,ppn=1,isGPU=False,walltime=10,
+                 jobName='SummaHTC', nTimes=1, nNodes=1, ppn=1, isGPU=False, walltime=10,
                  exe='date',snow_freeze_scale=50.0000, tempRangeTimestep=2.000, rootDistExp1=0.0, rootDistExp2=1.0,
                  k_soil1=1.0, k_soil2=100, qSurfScale1=1.0, qSurfScale2=100.0, summerLAI1=0.1,
-                 summerLAI2=10.0, step1=1, step2=1, step3=1, step4=1, summaoption=3):
+                 summerLAI2=10.0, step1=1, step2=1, step3=1, step4=1, summaoption="simpleResistance"):
             
         if (HOST_NAME=="comet" or HOST_NAME=="Comet"):
             HOST_NAME = 'comet.sdsc.xsede.org'
@@ -275,8 +277,8 @@ class SummaHTC():
         self.modules.update(set(modules))
         return self
         
-    def submit(self,preview=True, monitor=True):
-        res=self.__submitUI(preview,monitor)
+    def submit(self, preview=True, monitor=True):
+        res = self.__submitUI(preview, monitor)
         return self
         #if (not preview) and (not monitor):
         #    return res
@@ -331,7 +333,7 @@ class SummaHTC():
             options = locationList,
             value = locationList[0],
         )
-    
+
         nTimes=BoundedIntText(
             value=self.nTimes,
             min=1,
@@ -343,7 +345,7 @@ class SummaHTC():
             readout_format='d',
             slider_color='white'
         )
-    
+
         nNodes=IntSlider(
             value=self.nNodes,
             min=1,
@@ -500,8 +502,10 @@ class SummaHTC():
             slider_color='white'
         )
 
-        summa_option= widgets.Dropdown(
-            options = [('BallBerry', 1), ('Jarvis', 2), ('simpleResistance', 3)],
+        summa_option = widgets.Dropdown(
+            options=['BallBerry',
+                     'Jarvis',
+                     'simpleResistance'],
             value=self.summaoption,
             disabled=False,
         )
@@ -544,20 +548,21 @@ class SummaHTC():
         jobEdits = [jobName,entrance,nTimes,nNodes,ppn,isGPU,walltime, num_times_exe, confirm, location]
 
         postSubmission = [refresh, cancel]
-        
+
         def switchMode():
             if not self.editMode:
                 status.value = ''
-                
+
             for w in jobEdits:
                 w.disabled = self.editMode
             jobview.disabled = self.editMode
-            
+
             self.editMode = not self.editMode
             for w in postSubmission:
                 w.disabled = self.editMode
-                            
-        def gen_summa_dir_name():
+
+        def gen_summa_dir_name_old():
+
             #if self.remoteSummaDir is None:
             stdout = "Found\n"
             ans = "nothing"
@@ -568,12 +573,29 @@ class SummaHTC():
 
             return self.remoteSummaDir
 
-        def upload_task():
+        def gen_summa_dir_name(job_id):
 
-            gen_summa_dir_name()
+            # if self.remoteSummaDir is None:
+            stdout = "Found\n"
+            ans = "nothing"
+            while (stdout == "Found\n"):
+                ans = ("/home/" if self.host.startswith(
+                    'comet') else '/data/keeling/a/') + self.host_userName + "/summatest_" + str(
+                    random.randint(1, 10000))
+                stdout = self.__runCommandBlock("[ -d " + ans + " ] && echo 'Found'")
+            self.remoteSummaDir = ans
+
+            return self.remoteSummaDir
+
+        def upload_task(job_id, case_id=None):
+            #gen_summa_dir_name()
+            ans = "/home/" if self.host.startswith('comet') else '/data/keeling/a/'
+            ans = os.path.join(ans, self.host_userName, job_id)
+            self.__runCommandBlock('mkdir -p ' + ans)
+            if case_id is not None:
+                ans = os.path.join(ans, str(case_id))
+            self.remoteSummaDir = ans
             self.exe = 'for i in `seq 1 ' + str(nTimes.value) +'`\ndo\nsingularity exec summa.simg bash -c "'+ ('' if self.host.startswith('comet') else 'cd %s && '%(self.remoteSummaDir.replace('/data/keeling/a/','/home/'))) + './installSummaTest.sh %d && ./runSummaTest.sh $i" &\ndone\n\nwait'%nTimes.value
-            
-
             output.value+='<br>Currently uploading the task</font>'
             output.value+=self.remoteSummaDir
             assert self.remoteSummaDir is not None
@@ -581,7 +603,7 @@ class SummaHTC():
             summaTestDirPath = self.summatestPath
             basename = os.path.basename(summaTestDirPath)
             basezip = shutil.make_archive(basename, 'zip', summaTestDirPath)
-            output.value+='<br>Try to upload the folder</font>'
+            output.value+='<br>Try to upload {} ==> {}</font>'.format(basezip, ans+'.zip')
             self.__sftp.put(basezip, ans+'.zip')
 
             output.value+='<br>Uploading the folder already</font>'
@@ -598,7 +620,7 @@ class SummaHTC():
             self.isGPU = isGPU.value.lower().replace(' ','')=='gpu'
             self.ppn = int(ppn.value)
             self.walltime = int(float(walltime.value))
-            self.num_times_exe = int(float(num_times_exe.value)) if num_times_exe.value.isdigit() else '' 
+            self.num_times_exe = int(float(num_times_exe.value)) if num_times_exe.value.isdigit() else ''
             #gen_summa_dir_name()
             self.exe = 'for i in `seq 1 ' + str(nTimes.value) +'`\ndo\nsingularity exec summa.simg bash -c "'+ ('' if self.host.startswith('comet') else 'cd %s && '%(self.remoteSummaDir.replace('/data/keeling/a/','/home/'))) + './installSummaTest.sh %d && ./runSummaTest.sh $i" &\ndone\n\nwait'%nTimes.value
             self.Allocation = location.value
@@ -607,37 +629,37 @@ class SummaHTC():
                   allocation = location.value,
                   jobname  = jobName.value,
                   n_times  = nTimes.value,
-                  n_nodes  = int(nTimes.value/20+1), 
+                  n_nodes  = int(nTimes.value/20+1),
                   is_gpu   = isGPU.value.lower().replace(' ',''),
                   ppn      = 20,
-                  walltime = '00:%02d:00'%int(float(walltime.value)), 
-                  username = self.userName, 
+                  walltime = '00:%02d:00'%int(float(walltime.value)),
+                  username = self.userName,
                   stdout   = '/home/'+self.host_userName+'/summatest/'+jobName.value+'.stdout',
                   stderr   = '/home/'+self.host_userName+'/summatest/'+jobName.value+'.stderr',
                   hpcPath  = self.hpcRoot,
                   modules  = 'module load singularity',#+' '.join(list(self.modules)),
                   exe      = self.exe
-          
+
            )
         #click_preview(1)
-        #preview.on_click(click_preview)    
+        #preview.on_click(click_preview)
         output=widgets.HTML(value="<p style='font-family:Courier'><font color='blue'>")
-        
+
         for w in jobEdits:
             w.observe(click_preview, names='value')
-  
+
         def refreshStatus(b, jobstatus, jobId):
             if jobId is None:
              #   status.value='<pre><font size=2>%s</font></pre>'%('\n'*8)
                 return
-            
-            result = self.__runCommand('date; qstat -a %s | sed 1,3d '%jobId)                
+
+            result = self.__runCommand('date; qstat -a %s | sed 1,3d '%jobId)
             self.startTime = 0
-            
+
             if 'Unknown Job Id Error' in result:
                 result = 'Job %s finished'%jobId
                 est_time= '\n'*7
-                
+
             else:
                 currentStatus=result[-8]
                 if jobStatus == 'queuing' and currentStatus == 'R':
@@ -656,12 +678,12 @@ class SummaHTC():
                     #output.value+='<br>Total walltime spent: %.1fs</font>'%(self.queueTime+self.runTime)
                     output.value+='<br>Preparing for the result:</font>'
                     output.value+='<br>Loading: </font>'
-               
+
             status.value='<pre><font size=2>%s\n</font></pre>'%(result)
-            
+
         #refreshStatus(1, jobstatus)
         #refresh.on_click(refreshStatus)
-          
+
 
         def downloadFile(localPath, remotePath, filename):
             output.value+="Downloading File"
@@ -688,65 +710,8 @@ class SummaHTC():
                         shutil.rmtree(nextLocalPath)
                     os.makedirs(nextLocalPath)
                     recursive_download(nextLocalPath, nextRemotePath)
-               
 
-
-        def monitorDeamon(jobStatus, jobId, outputPath, jobName, remoteSummaDir, interval=1):
-            while jobStatus!='finished':
-                time.sleep(interval)
-                
-            
-                result = self.__runCommand('date; qstat -a %s | sed 1,3d '%jobId)                
-                self.startTime = 0
-            
-                if 'Unknown Job Id Error' in result:
-                    result = 'Job %s finished'%jobId
-                    est_time= '\n'*7
-                
-                else:
-                    currentStatus=result[-8]
-                    if jobStatus == 'queuing' and currentStatus == 'R':
-                        jobStatus = 'running'
-                        startTime = time.time()
-                        queueTime = self.startTime - self.submissionTime
-                    #output.value+='<br>Job %s started after queuing for %.1fs'%(self.jobId,self.queueTime)
-                        output.value+='<br>Job Running'
-                    if currentStatus == 'C':
-                        jobStatus = 'finished'
-                        result = 'Job %s finished'%jobId
-                        est_time= '\n'*7
-                    #self.endTime=time.time()
-                    #self.runTime=(self.endTime-self.startTime) if self.startTime > 0 else 0
-                    #output.value+='<br>Job %s finished after running for %.1fs.'%(self.jobId, self.runTime)
-                    #output.value+='<br>Total walltime spent: %.1fs</font>'%(self.queueTime+self.runTime)
-                        output.value+='<br>Preparing for the result:</font>'
-                        output.value+='<br>Loading: </font>'
-               
-                status.value='<pre><font size=2>%s\n</font></pre>'%(result)
-
-
-            output_files = outputPath+"/" + jobName + "/" + jobId
-            if os.path.exists(output_files):
-                shutil.rmtree(output_files)
-            os.makedirs(output_files)
-            output.value+='<br>Downloading outputs from %s to %s</br>'%(remoteSummaDir, output_files)
-            self.__sftp.get(remoteSummaDir + "/Test.stdout", output_files+"/out.stdout")
-            recursive_download(output_files, remoteSummaDir + "/summaTestCases/output")
-            output.value+='<br>The output should be in your Jupyter <a href="output/">login folder</a></font>' 
-         #   filesSelector = FileBrowser(output_files)
-         #   display(filesSelector.widget())
-     #   out_file_path = filesSelector.getPath()
-         #   while(os.path.isdir(out_file_path)):
-          #      out_file_path = filesSelector.getPath()
-
-        #    logger.info(out_file_path)
-            #test = summaVis("output/"+ self.jobName+ "/ouput1/syntheticTestCases/colbeck1976/colbeck1976-exp1_1990-01-01-00_spinup_testSumma_1.nccolbeck1976-exp1_1990-01-01-00_spinup_testSumma_1.nc")
-            #test = summaVis("output/Test/ouput1/syntheticTestCases/colbeck1976/colbeck1976-exp1_1990-01-01-00_spinup_testSumma_1.nccolbeck1976-exp1_1990-01-01-00_spinup_testSumma_1.nc")
-            #test.attrPlot('scalarRainPlusMelt')
-            #self.__client.exec_command("rm -r " + remoteSummaDir)
-            switchMode()
-
-        def monitorDeamon2(host, user, pw, jobStatus, jobId, outputPath, jobName, remoteSummaDir, interval=1):
+        def monitorDeamon(host, user, pw, jobStatus, jobId, outputPath, jobName, remoteSummaDir, interval=1):
             from .comm import SSHComm
             comm_obj = SSHComm(host, user, pw)
             while jobStatus != 'finished':
@@ -802,14 +767,150 @@ class SummaHTC():
             # self.__client.exec_command("rm -r " + remoteSummaDir)
             switchMode()
 
-
-        def replaceAll(file,searchExp,replaceExp):
+        def replaceAll(file, searchExp, replaceExp):
             for line in fileinput.input(file, inplace=1):
                 if searchExp in line:
                     line = replaceExp
                 sys.stdout.write(line)
 
+        def replaceFlagInTextFile(file, searchExp, replaceExp):
+            for line in fileinput.input(file, inplace=1):
+                if searchExp in line:
+                    line = replaceExp
+                sys.stdout.write(line)
+
+        def generate_param_trail_LofD_from_UI():
+            # param_trail_list_of_dict
+
+            def __get_numeric_range(min, max, step, factor=1, to_list=True):
+                r = np.arange(min, max, step)
+                if max not in r:
+                    r = np.append(r, max)
+                return r * factor if not to_list else (r * factor).tolist()
+
+            def __combination_of_parameters(parameter_trail_dict, add_id=True):
+                """
+                See: https://codereview.stackexchange.com/questions/171173/list-all-possible-permutations-from-a-python-dictionary-of-lists
+                :param parameter_trail_dict: {"param_A": [1, 2],
+                                              "param_B": ["B1", "B2", "B3"],
+                                              "param_C": [10.0, 10.1]
+                                             }
+                :return:[{'param_A': 1, 'param_B': 'B1', 'param_C': 10.0}
+                        {'param_A': 1, 'param_B': 'B1', 'param_C': 10.1}
+                        {'param_A': 1, 'param_B': 'B2', 'param_C': 10.0}
+                        {'param_A': 1, 'param_B': 'B2', 'param_C': 10.1}
+                        {'param_A': 1, 'param_B': 'B3', 'param_C': 10.0}
+                        {'param_A': 1, 'param_B': 'B3', 'param_C': 10.1}
+                        {'param_A': 2, 'param_B': 'B1', 'param_C': 10.0}
+                        {'param_A': 2, 'param_B': 'B1', 'param_C': 10.1}
+                        {'param_A': 2, 'param_B': 'B2', 'param_C': 10.0}
+                        {'param_A': 2, 'param_B': 'B2', 'param_C': 10.1}
+                        {'param_A': 2, 'param_B': 'B3', 'param_C': 10.0}
+                        {'param_A': 2, 'param_B': 'B3', 'param_C': 10.1}]
+                """
+                from itertools import product
+                experiments = [dict(zip(parameter_trail_dict.keys(), value)) for value in
+                               product(*parameter_trail_dict.values())]
+                if add_id:
+                    for i in range(len(experiments)):
+                        experiments[i]['id'] = i
+                return experiments
+
+            parameter_trail_dict = {}
+            # rootDistExp
+            min_para = min(rde.value[0], rde.value[1])
+            max_para = max(rde.value[0], rde.value[1])
+            delta = s1.value
+            print(min_para, max_para, delta)
+            parameter_trail_dict["rootDistExp"] = __get_numeric_range(min_para, max_para, delta)
+
+
+            # k_soil
+            min_para_2 = min(ks.value[0], ks.value[1])
+            max_para_2 = max(ks.value[0], ks.value[1])
+            delta_2 = s2.value
+            print(min_para_2, max_para_2, delta_2)
+            parameter_trail_dict["k_soil"] = __get_numeric_range(min_para_2, max_para_2, delta_2)
+
+            # stomResist
+            #parameter_trail_dict.append({"stomResist": ["simpleResistance", "Jarvis", "BallBerry"]})
+            parameter_trail_dict["stomResist"] = [summa_option.value]
+
+            # combination
+            param_trail_LofD = __combination_of_parameters(parameter_trail_dict)
+
+
+            return param_trail_LofD
+
+        def write_single_testcase(_param_dict):
+            # Param_Trial.nc
+            filepath = './summatest/summaTestCases/settings_org/wrrPaperTestCases/figure07/summa_zParamTrial_riparianAspen.nc'
+            with nc.Dataset(filepath, 'r+') as Param_Trial:
+                for k in ['rootDistExp', 'k_soil']:
+                    Param_Trial.variables[k][:] = _param_dict[k]
+
+            # Decision file
+            summaoptionfilename = os.path.join(self.summatestPath,
+                                               'summaTestCases/settings_org/wrrPaperTestCases/figure07/summa_zDecisions_riparianAspenSimpleResistance.txt')
+            stomResist_value = _param_dict['stomResist']
+            # simpleResistance, BallBerry, Jarvis
+            stomResist_flag_template = "stomResist"
+            stomResist_flag_value = "stomResist                      {stomResist}       ! (06) choice of function for stomatal resistance\n".format(stomResist=stomResist_value)
+            replaceFlagInTextFile(summaoptionfilename, stomResist_flag_template, stomResist_flag_value)
+            pass
+
         def submit(b):
+            uuid4_str = str(uuid.uuid4())[:8]
+            now_utc = datetime.utcnow()
+            jobid_htc = "{jobName}_{job_id}".format(jobName=self.jobName,
+                                                    job_id=uuid4_str + now_utc.strftime("_utc%Y%m%d-%H%M%S_" + str(int(now_utc.timestamp()))))
+
+            param_trail_LofD = generate_param_trail_LofD_from_UI()
+            for item in param_trail_LofD:
+                print(item)
+            for param_trail_D in param_trail_LofD:
+                write_single_testcase(param_trail_D)
+                upload_task(jobid_htc, case_id=param_trail_D["id"])
+                jobview.value = self.job_template.substitute(
+                    allocation=location.value,
+                    jobname=jobName.value,
+                    n_times=nTimes.value,
+                    n_nodes=int(nTimes.value / 20 + 1),
+                    is_gpu=isGPU.value.lower().replace(' ', ''),
+                    ppn=20,
+                    walltime='00:%02d:00' % int(float(walltime.value)),
+                    username=self.userName,
+                    stdout=self.remoteSummaDir + "/" + jobName.value + '.stdout',
+                    stderr=self.remoteSummaDir + "/" + jobName.value + '.stderr',
+                    hpcPath=self.hpcRoot,
+                    modules='module load singularity',  # +' '.join(list(self.modules)),
+                    exe=self.exe
+                )
+                filename = '%s.sh' % jobName.value
+                with open(self.jobDir + '/' + filename, 'w') as out:
+                    out.write(jobview.value)
+                self.pbs = self.jobDir + '/' + filename
+                self.__sftp.put(self.pbs, self.remoteSummaDir + '/run.qsub')
+                self.jobId = self.__runCommand('cd ' + self.remoteSummaDir + ' && ' + (
+                    'qsub' if self.host.startswith('comet') else 'sbatch') + ' run.qsub').strip().split(' ')[-1]
+                param_trail_D['id_remote'] = self.jobId
+                if ('ERROR' in self.jobId or 'WARN' in self.jobId):
+                    output.value += '<br>Error submitting the task\n</font>'
+                    logger.warn('submit job error: %s' % self.jobId)
+                    exit()
+
+                self.submissionTime = time.time()
+                self.jobStatus = 'queuing'
+                switchMode()
+                t = Thread(target=monitorDeamon, args=(self.host, self.host_userName, self.pw,
+                                                       self.jobStatus, self.jobId, self.outputPath,
+                                                       self.jobName, self.remoteSummaDir))
+                t.start()
+            pass
+            for item in param_trail_LofD:
+                print(item)
+
+        def submit_old(b):
 
             summaoptionfilename=os.path.join(self.summatestPath,
                                             'summaTestCases/settings_org/wrrPaperTestCases/figure07/summa_zDecisions_riparianAspenSimpleResistance.txt')
@@ -818,9 +919,9 @@ class SummaHTC():
 
             summasearchEXP = "stomResist"
 
-            firstexp ="stomResist                      BallBerry       ! (06) choice of function for stomatal resistance\n"
-            secondexp ="stomResist                      Jarvis          ! (06) choice of function for stomatal resistance\n"
-            thirdexp ="stomResist                      simpleResistance ! (06) choice of function for stomatal resistance\n"
+            firstexp = "stomResist                      BallBerry       ! (06) choice of function for stomatal resistance\n"
+            secondexp = "stomResist                      Jarvis          ! (06) choice of function for stomatal resistance\n"
+            thirdexp = "stomResist                      simpleResistance ! (06) choice of function for stomatal resistance\n"
 
             print("My option is")
             print(curr_opt)
@@ -843,8 +944,8 @@ class SummaHTC():
 
             #replaceAll("/opt/cybergis/summatest/summaTestCases/settings_org/syntheticTestCases/colbeck1976/summa_zLocalParamInfo.txt", "snowfrz_scale", "snowfrz_scale             |      "+str(snow_freeze_scale)+"000 |      10.0000 |    1000.0000\n")
             #replaceAll("/opt/cybergis/summatest/summaTestCases/settings_org/syntheticTestCases/colbeck1976/summa_zLocalParamInfo.txt", "tempRangeTimestep", "tempRangeTimestep         |       "+str(tempRangeTimestepmid)+" |       "+str(tempRangeTimestepmin)+" |    "+str(tempRangeTimestepmax)+"\n")
-            
-            
+
+
             #output.value += '<br>What we got here is '+str(rde.value[0])+' '+str(rde.value[1])+'\n</font>'
 
             #x1 = math.floor(abs(rde.value[0]-rde.value[1])/s1.value)+1
@@ -929,26 +1030,26 @@ class SummaHTC():
                     #output.value+='<br>Job %s submitted at %s \n</font>'%(self.jobId,time.ctime())
                     switchMode()
 
-                    t = Thread(target=monitorDeamon2, args=(self.host, self.host_userName, self.pw,
+                    t = Thread(target=monitorDeamon, args=(self.host, self.host_userName, self.pw,
                                                           self.jobStatus, self.jobId, self.outputPath,
                                                           self.jobName, self.remoteSummaDir))
                     t.start()
-                
+
 
                 #monitorDeamon()
-        
+
         confirm.on_click(submit)
-        
+
         def click_cancel(b):
             if self.jobId:
                 self.__runCommand('qdel %s'%self.jobId)
             switchMode()
-        
+
         cancel.on_click(click_cancel)
-        
+
         def click_newJob(b):
             switchMode()
-        
+
         newJob.on_click(click_newJob)
         submitForm=VBox([
             Title(),
@@ -981,7 +1082,7 @@ class SummaHTC():
 
         if not preview:
             submit(1)
-            
+
         #display(Tab([submitForm, statusTab], _titles={0: 'Submit New Job', 1: 'Check Job Status'}))
         if not preview:
             if monitor:
