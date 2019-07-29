@@ -34,6 +34,8 @@ import netCDF4 as nc
 import numpy as np
 from datetime import datetime
 import uuid
+from .comm import SSHComm
+import queue
 
 #from FileBrowser import FileBrowser
 # logger configuration 
@@ -620,7 +622,6 @@ class SummaHTC():
         #refreshStatus(1, jobstatus)
         #refresh.on_click(refreshStatus)
 
-
         def downloadFile(localPath, remotePath, filename):
             output.value+="Downloading File"
             output.value+=filename
@@ -647,10 +648,31 @@ class SummaHTC():
                     os.makedirs(nextLocalPath)
                     recursive_download(nextLocalPath, nextRemotePath)
 
+        q = queue.Queue()
+        def update_remote_jobs_status(host, user, pw, param_trail_LofD):
+            comm_obj = SSHComm(host, user, pw)
+            while True:
+                jobId_remote_list = []
+                for item in param_trail_LofD:
+                    if "id_remote" in item:
+                        jobId_remote_list.append(str(item['id_remote']))
+                jobIds_str = ' '.join(jobId_remote_list)
+                if jobIds_str:
+                    result = comm_obj.runCommand('date; qstat -a %s | sed 1,3d ' % jobIds_str)
+                    status.value = '<pre><font size=2>%s\n</font></pre>' % (result)
+                try:
+                    t = q.get_nowait()
+                except queue.Empty:
+                    pass
+                else:
+                    q.task_done()
+                    break
+                time.sleep(1)
+
         def monitorDeamon(host, user, pw, jobStatus,
                           jobId_remote, jobId_local, jobId_htc,
                           outputPath, jobName, remoteSummaDir, interval=1):
-            from .comm import SSHComm
+
             comm_obj = SSHComm(host, user, pw)
             while jobStatus != 'finished':
                 time.sleep(interval)
@@ -680,7 +702,7 @@ class SummaHTC():
                         output.value += '<br>Preparing for the result:</font>'
                         output.value += '<br>Loading: </font>'
 
-                status.value = '<pre><font size=2>%s\n</font></pre>' % (result)
+                #status.value = '<pre><font size=2>%s\n</font></pre>' % (result)
 
             output_files = os.path.join(outputPath, "{}_{}".format(jobName, jobId_htc), "{}_{}".format(jobId_local, jobId_remote))
             if os.path.exists(output_files):
@@ -759,19 +781,20 @@ class SummaHTC():
             min_para = min(rde.value[0], rde.value[1])
             max_para = max(rde.value[0], rde.value[1])
             delta = s1.value
-            print(min_para, max_para, delta)
             parameter_trail_dict["rootDistExp"] = __get_numeric_range(min_para, max_para, delta)
+            print(parameter_trail_dict["rootDistExp"])
 
             # k_soil
             min_para_2 = min(ks.value[0], ks.value[1])
             max_para_2 = max(ks.value[0], ks.value[1])
             delta_2 = s2.value
-            print(min_para_2, max_para_2, delta_2)
-            parameter_trail_dict["k_soil"] = __get_numeric_range(min_para_2, max_para_2, delta_2)
+            parameter_trail_dict["k_soil"] = __get_numeric_range(min_para_2, max_para_2, delta_2, factor=0.01)
+            print(parameter_trail_dict["k_soil"])
 
             # stomResist
             #parameter_trail_dict.append({"stomResist": ["simpleResistance", "Jarvis", "BallBerry"]})
             parameter_trail_dict["stomResist"] = [summa_option.value]
+            print(parameter_trail_dict["stomResist"])
 
             # combination
             param_trail_LofD = __combination_of_parameters(parameter_trail_dict)
@@ -795,14 +818,22 @@ class SummaHTC():
             replaceFlagInTextFile(summaoptionfilename, stomResist_flag_template, stomResist_flag_value)
             pass
 
+        param_trail_LofD = []
+
         def submit(b):
             uuid4_str = str(uuid.uuid4())[:8]
             now_utc = datetime.utcnow()
             jobid_htc = "{}_{}_{}".format(now_utc.strftime("utc%Y%m%d-%H%M%S"), str(int(now_utc.timestamp())), uuid4_str)
-
+            global param_trail_LofD
             param_trail_LofD = generate_param_trail_LofD_from_UI()
             for item in param_trail_LofD:
                 print(item)
+
+            t_update_remote_jobs_status = Thread(target=update_remote_jobs_status,
+                                                 args=(self.host, self.host_userName, self.pw, param_trail_LofD))
+            t_update_remote_jobs_status.start()
+            monitorDeamon_thread_pool = []
+
             for param_trail_D in param_trail_LofD:
                 write_single_testcase(param_trail_D)
                 upload_task(self.jobName, jobid_htc, case_id=param_trail_D["id"])
@@ -841,9 +872,14 @@ class SummaHTC():
                                                        param_trail_D['id_remote'], param_trail_D['id'], jobid_htc,
                                                        self.outputPath, self.jobName, self.remoteSummaDir))
                 t.start()
-            pass
+                monitorDeamon_thread_pool.append(t)
+
             for item in param_trail_LofD:
                 print(item)
+            for t in monitorDeamon_thread_pool:
+                t.join()
+            q.put(1)
+            t_update_remote_jobs_status.join()
 
         def submit_old(b):
 
@@ -1053,7 +1089,7 @@ class SummaHTC():
         
         def refreshStatus(b):
             #status.value='<pre>'+self.__runCommand('date; qstat  | awk \'NR < 3 || /%s/\''%(self.username))+'</pre>'
-            result = self.__runCommand("qstat | sed -n '1,2p;/%s/p'"%user)
+            result = self.__runCommand("qstat | sed -n '1,2p;/%s/p'" % user)
             header.value='<pre>%s</pre>'%result
             self.runningIds = [_.split()[0] for _ in result.strip().split('\n')[2:]]
             #status.options = [_.split()[0] for _ in result.strip().split('\n')[2:]]
