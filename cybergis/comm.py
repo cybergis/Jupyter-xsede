@@ -65,19 +65,21 @@ class SSHComm(object):
         remoteFolder = remoteFolder.strip()
         remoteFilename = remoteFilename.strip()
 
-        print(localFolder, localFilename, remoteFolder, remoteFilename)
         if not os.path.exists(localFolder):
             os.makedirs(localFolder)
         try:
             self.sftp.get(str(os.path.join(remoteFolder, remoteFilename)), str(os.path.join(localFolder, localFilename)))
             #self.sftp.get(remotePath, os.path.join(localPath, filename))
-        except:
-            print("I am doing it again")
+        except Exception as ex:
+            print("I am doing it again: {}".format(ex))
+            print(localFolder, localFilename, remoteFolder, remoteFilename)
             time.sleep(10)
             try:
                 self.sftp.get(str(os.path.join(remoteFolder, remoteFilename)), str(os.path.join(localFolder, localFilename)))
-            except:
-                print("Cant download")
+            except Exception as ex:
+                print("Failed to download: {}".format(ex))
+                print(localFolder, localFilename, remoteFolder, remoteFilename)
+
     def downloadFolder(self, localPath, remotePath):
         '''
         Recursive download folder content

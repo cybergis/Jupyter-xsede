@@ -148,7 +148,7 @@ class SummaHTC():
 
     def __init__(self, HOST_NAME="localhost", user_name="", task_name="",
                  workspace="./workspace", summafolder="./summatest",
-                 jobName='SummaHTC', nTimes=1, nNodes=1, ppn=1, isGPU=False, walltime=10,
+                 jobName='sHTC', nTimes=1, nNodes=1, ppn=1, isGPU=False, walltime=10,
                  exe='date',snow_freeze_scale=50.0000, tempRangeTimestep=2.000, rootDistExp1=0.0, rootDistExp2=1.0,
                  k_soil1=1.0, k_soil2=100, qSurfScale1=1.0, qSurfScale2=100.0, summerLAI1=0.1,
                  summerLAI2=10.0, step1=1, step2=1, step3=1, step4=1, summaoption="simpleResistance"):
@@ -180,21 +180,6 @@ class SummaHTC():
         self.hpcJobDir = self.hpcRoot + '/.jobs'
         self.relPath = os.path.relpath(os.getcwd(), self.homeDir)
         self.editMode = True
-        self.rootDistExp1=rootDistExp1
-        self.rootDistExp2=rootDistExp2
-        self.k_soil1=k_soil1
-        self.k_soil2=k_soil2
-        self.qSurfScale1=qSurfScale1
-        self.qSurfScale2=qSurfScale2
-        self.summerLAI1=summerLAI1
-        self.summerLAI2=summerLAI2
-
-        self.step1=step1
-        self.step2=step2
-        self.step3=step3
-        self.step4=step4
-
-        self.summaoption=summaoption
 
 
         self.num_times_exe = 1
@@ -407,9 +392,9 @@ class SummaHTC():
         )
 
         rde=FloatRangeSlider(
-            value=[float(self.rootDistExp1), float(self.rootDistExp2)],
+            value=[0.0, 1.0],
             min=0.0,
-            max=2.0,
+            max=1.0,
             step=0.1,
             continuous_update=False,
             orientation='horizontal',
@@ -419,7 +404,7 @@ class SummaHTC():
         )
 
         s1=FloatSlider(
-            value=self.step1,
+            value=0.1,
             min=0.1,
             max=1.0,
             step=0.1,
@@ -431,10 +416,10 @@ class SummaHTC():
         )
 
         ks=FloatRangeSlider(
-            value=[float(self.k_soil1), float(self.k_soil2)],
+            value=[1.0, 3.0],
             min=1.0,
             max=100.0,
-            step=1,
+            step=1.0,
             continuous_update=False,
             orientation='horizontal',
             readout=True,
@@ -443,10 +428,10 @@ class SummaHTC():
         )
 
         s2=IntSlider(
-            value=self.step2,
-            min=1,
-            max=20,
-            step=1,
+            value=1.0,
+            min=1.0,
+            max=20.0,
+            step=1.0,
             continuous_update=False,
             orientation='horizontal',
             readout=True,
@@ -454,63 +439,14 @@ class SummaHTC():
             slider_color='white'
         )
 
-        qss=FloatRangeSlider(
-            value=[float(self.qSurfScale1), float(self.qSurfScale2)],
-            min=0.0,
-            max=100.0,
-            step=0.1,
-            continuous_update=False,
-            orientation='horizontal',
-            readout=True,
-            readout_format='.1f',
-            slider_color='white'
-        )
-
-        s3=IntSlider(
-            value=self.step3,
-            min=1,
-            max=20,
-            step=1,
-            continuous_update=False,
-            orientation='horizontal',
-            readout=True,
-            readout_format='d',
-            slider_color='white'
-        )
-
-        sla=FloatRangeSlider(
-            value=[float(self.summerLAI1), float(self.summerLAI2)],
-            min=0.0,
-            max=100.0,
-            step=0.1,
-            continuous_update=False,
-            orientation='horizontal',
-            readout=True,
-            readout_format='.1f',
-            slider_color='white'
-        )
-
-        s4=IntSlider(
-            value=self.step4,
-            min=1,
-            max=20,
-            step=1,
-            continuous_update=False,
-            orientation='horizontal',
-            readout=True,
-            readout_format='d',
-            slider_color='white'
-        )
 
         summa_option = widgets.Dropdown(
             options=['BallBerry',
                      'Jarvis',
                      'simpleResistance'],
-            value=self.summaoption,
+            value='simpleResistance',
             disabled=False,
         )
-
-
 
 
         preview=Button(
@@ -587,10 +523,10 @@ class SummaHTC():
 
             return self.remoteSummaDir
 
-        def upload_task(job_id, case_id=None):
+        def upload_task(job_name, job_id, case_id=None):
             #gen_summa_dir_name()
             ans = "/home/" if self.host.startswith('comet') else '/data/keeling/a/'
-            ans = os.path.join(ans, self.host_userName, job_id)
+            ans = os.path.join(ans, self.host_userName, "{}_{}".format(job_name, job_id))
             self.__runCommandBlock('mkdir -p ' + ans)
             if case_id is not None:
                 ans = os.path.join(ans, str(case_id))
@@ -711,19 +647,20 @@ class SummaHTC():
                     os.makedirs(nextLocalPath)
                     recursive_download(nextLocalPath, nextRemotePath)
 
-        def monitorDeamon(host, user, pw, jobStatus, jobId, outputPath, jobName, remoteSummaDir, interval=1):
+        def monitorDeamon(host, user, pw, jobStatus,
+                          jobId_remote, jobId_local, jobId_htc,
+                          outputPath, jobName, remoteSummaDir, interval=1):
             from .comm import SSHComm
             comm_obj = SSHComm(host, user, pw)
             while jobStatus != 'finished':
                 time.sleep(interval)
 
-                result = comm_obj.runCommand('date; qstat -a %s | sed 1,3d ' % jobId)
+                result = comm_obj.runCommand('date; qstat -a %s | sed 1,3d ' % jobId_remote)
                 self.startTime = 0
 
                 if 'Unknown Job Id Error' in result:
-                    result = 'Job %s finished' % jobId
+                    result = 'Job %s finished' % jobId_remote
                     est_time = '\n' * 7
-
                 else:
                     currentStatus = result[-8]
                     if jobStatus == 'queuing' and currentStatus == 'R':
@@ -734,7 +671,7 @@ class SummaHTC():
                         output.value += '<br>Job Running'
                     if currentStatus == 'C':
                         jobStatus = 'finished'
-                        result = 'Job %s finished' % jobId
+                        result = 'Job %s finished' % jobId_remote
                         est_time = '\n' * 7
                         # self.endTime=time.time()
                         # self.runTime=(self.endTime-self.startTime) if self.startTime > 0 else 0
@@ -745,13 +682,14 @@ class SummaHTC():
 
                 status.value = '<pre><font size=2>%s\n</font></pre>' % (result)
 
-            output_files = outputPath + "/" + jobName + "/" + jobId
+            output_files = os.path.join(outputPath, "{}_{}".format(jobName, jobId_htc), "{}_{}".format(jobId_local, jobId_remote))
             if os.path.exists(output_files):
                 shutil.rmtree(output_files)
             os.makedirs(output_files)
             output.value += '<br>Downloading outputs from %s to %s</br>' % (remoteSummaDir, output_files)
-            comm_obj.sftp.get(remoteSummaDir + "/Test.stdout", output_files + "/out.stdout")
-            comm_obj.downloadFile(output_files, "out.stderr", remoteSummaDir, "Test.stderr",)
+            comm_obj.sftp.get(remoteSummaDir + "/{}.stdout".format(jobName), output_files + "/out.stdout")
+            ## got strange "Premission Denied" issue on err file
+            #comm_obj.downloadFile(output_files, "/{}.stderr".format(jobName), remoteSummaDir, "out.stderr",)
             comm_obj.downloadFolder(output_files, remoteSummaDir + "/summaTestCases/output")
             output.value += '<br>The output should be in your Jupyter <a href="output/">login folder</a></font>'
             #   filesSelector = FileBrowser(output_files)
@@ -824,7 +762,6 @@ class SummaHTC():
             print(min_para, max_para, delta)
             parameter_trail_dict["rootDistExp"] = __get_numeric_range(min_para, max_para, delta)
 
-
             # k_soil
             min_para_2 = min(ks.value[0], ks.value[1])
             max_para_2 = max(ks.value[0], ks.value[1])
@@ -838,7 +775,6 @@ class SummaHTC():
 
             # combination
             param_trail_LofD = __combination_of_parameters(parameter_trail_dict)
-
 
             return param_trail_LofD
 
@@ -862,18 +798,17 @@ class SummaHTC():
         def submit(b):
             uuid4_str = str(uuid.uuid4())[:8]
             now_utc = datetime.utcnow()
-            jobid_htc = "{jobName}_{job_id}".format(jobName=self.jobName,
-                                                    job_id=uuid4_str + now_utc.strftime("_utc%Y%m%d-%H%M%S_" + str(int(now_utc.timestamp()))))
+            jobid_htc = "{}_{}_{}".format(now_utc.strftime("utc%Y%m%d-%H%M%S"), str(int(now_utc.timestamp())), uuid4_str)
 
             param_trail_LofD = generate_param_trail_LofD_from_UI()
             for item in param_trail_LofD:
                 print(item)
             for param_trail_D in param_trail_LofD:
                 write_single_testcase(param_trail_D)
-                upload_task(jobid_htc, case_id=param_trail_D["id"])
+                upload_task(self.jobName, jobid_htc, case_id=param_trail_D["id"])
                 jobview.value = self.job_template.substitute(
                     allocation=location.value,
-                    jobname=jobName.value,
+                    jobname="{}_{}_{}".format(jobName.value, uuid4_str, str(param_trail_D["id"])),
                     n_times=nTimes.value,
                     n_nodes=int(nTimes.value / 20 + 1),
                     is_gpu=isGPU.value.lower().replace(' ', ''),
@@ -902,9 +837,9 @@ class SummaHTC():
                 self.submissionTime = time.time()
                 self.jobStatus = 'queuing'
                 switchMode()
-                t = Thread(target=monitorDeamon, args=(self.host, self.host_userName, self.pw,
-                                                       self.jobStatus, self.jobId, self.outputPath,
-                                                       self.jobName, self.remoteSummaDir))
+                t = Thread(target=monitorDeamon, args=(self.host, self.host_userName, self.pw, 'queuing',
+                                                       param_trail_D['id_remote'], param_trail_D['id'], jobid_htc,
+                                                       self.outputPath, self.jobName, self.remoteSummaDir))
                 t.start()
             pass
             for item in param_trail_LofD:
