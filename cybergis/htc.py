@@ -452,6 +452,10 @@ class SummaHTC():
             disabled=False,
         )
 
+        stomResist_cb_dict = {}
+        for option in ['BallBerry', 'Jarvis', 'simpleResistance']:
+            stomResist_cb_dict[option] = widgets.Checkbox(value=True, description=option, disabled=False)
+
 
         preview=Button(
             description='Preview Job script',
@@ -830,7 +834,11 @@ class SummaHTC():
 
             # stomResist
             #parameter_trail_dict.append({"stomResist": ["simpleResistance", "Jarvis", "BallBerry"]})
-            parameter_trail_dict["stomResist"] = [summa_option.value]
+            #parameter_trail_dict["stomResist"] = [summa_option.value]
+            parameter_trail_dict["stomResist"] = []
+            for k,v in stomResist_cb_dict.items():
+                if v.value:
+                    parameter_trail_dict["stomResist"].append(v.description)
             print(parameter_trail_dict["stomResist"])
 
             # combination
@@ -1079,7 +1087,8 @@ class SummaHTC():
             Labeled('step',s1),
             Labeled('k_soil, *e-7',ks),
             Labeled('step, *e-7',s2),
-            Labeled('SUMMA options',summa_option),
+            #Labeled('SUMMA options',summa_option),
+            Labeled('stomResist Options', VBox([v for k,v in stomResist_cb_dict.items()])),
             #Labeled('step',s3),
             #Labeled('summerLAI',sla),
             #Labeled('step',s4),
