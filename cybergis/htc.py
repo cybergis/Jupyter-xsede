@@ -189,7 +189,7 @@ class SummaHTC():
         self.num_times_exe = 1
         self.snow_freeze_scale = snow_freeze_scale
         self.tempRangeTimestep = tempRangeTimestep
-        self.exe = 'for i in `seq '+ str(self.nTimes)  + str(self.num_times_exe) + '`\ndo\nsingularity exec summa.simg ./runSummaTest.sh $i\ndone'
+        self.exe = 'for i in `seq '+ str(self.nTimes) + str(self.num_times_exe) + '`\ndo\nsingularity exec summa.simg ./runSummaTest.sh $i\ndone'
 
         self.jobId = None
         self.remoteSummaDir = None #"/home/%s/"%self.host_userName
@@ -535,7 +535,25 @@ class SummaHTC():
             if case_id is not None:
                 ans = os.path.join(ans, str(case_id))
             self.remoteSummaDir = ans
-            self.exe = 'for i in `seq 1 ' + str(nTimes.value) +'`\ndo\nsingularity exec summa.simg bash -c "'+ ('' if self.host.startswith('comet') else 'cd %s && '%(self.remoteSummaDir.replace('/data/keeling/a/','/home/'))) + './installSummaTest.sh %d && ./runSummaTest.sh $i" &\ndone\n\nwait'%nTimes.value
+            #self.exe = 'for i in `seq 1 ' + str(nTimes.value) +'`\ndo\nsingularity exec summa.simg bash -c "'+ ('' if self.host.startswith('comet') else 'cd %s && '%(self.remoteSummaDir.replace('/data/keeling/a/','/home/'))) + './installSummaTest.sh %d && ./runSummaTest.sh $i" &\ndone\n\nwait'%nTimes.value
+
+            self.exe = 'singularity exec summa.simg bash -c "' + \
+                        'cd %s && ' % (self.remoteSummaDir.replace('/data/keeling/a/', '/home/')) + \
+                        './installSummaTest.sh %d"\n' % nTimes.value+ \
+                       'for i in `seq 1 {}`\n'.format(str(nTimes.value)) + \
+                        'do\n' +  \
+                       'singularity exec summa.simg bash -c "cd %s &&' % (self.remoteSummaDir.replace('/data/keeling/a/', '/home/')) + \
+                       './runSummaTest.sh $i"\n'.format(str(nTimes.value)) + \
+                        'done\n' + \
+                       'wait'
+
+    # 'singularity exec summa.simg bash -c "' + \
+    # 'cd %s && ' % (self.remoteSummaDir.replace('/data/keeling/a/', '/home/')) + \
+    # 'for i in `seq 1 {}`\ndo\n./runSummaTest.sh $i\ndone"'.format(str(nTimes.value)) + \
+
+            print (self.exe)
+
+
             output.value+='<br>Currently uploading the task</font>'
             output.value+=self.remoteSummaDir
             assert self.remoteSummaDir is not None
@@ -706,9 +724,11 @@ class SummaHTC():
 
                 #status.value = '<pre><font size=2>%s\n</font></pre>' % (result)
 
+            # sleep for 5s to wait I/O flushing
+            time.sleep(5)
             output_files = os.path.join(outputPath, "{}_{}".format(jobName, jobId_htc), "{}_{}".format(jobId_local, jobId_remote))
-            if os.path.exists(output_files):
-                shutil.rmtree(output_files)
+            #if os.path.exists(output_files):
+            #    shutil.rmtree(output_files)
             os.makedirs(output_files)
             output.value += '<br>Downloading outputs from %s to %s</br>' % (remoteSummaDir, output_files)
 
@@ -977,9 +997,7 @@ class SummaHTC():
                         j = max_para_2*0.0000001
                     Param_Trial = nc.Dataset(filepath,'r+')
                     Param_Trial.variables['rootDistExp'][:] = name_value
-                    Param_Trial.variables['k_soil'][:]=name_value_2
-
-
+                    Param_Trial.variables['k_soil'][:] = name_value_2
 
                     output.value += '<br>Finish tuning the parameter & Uploading the task\n</font>'
                 #output.value += '<br>Waiting in the queue\n</font>'
