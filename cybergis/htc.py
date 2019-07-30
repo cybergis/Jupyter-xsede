@@ -36,6 +36,8 @@ from datetime import datetime
 import uuid
 from .comm import SSHComm
 import queue
+import zipfile
+import json
 
 #from FileBrowser import FileBrowser
 # logger configuration 
@@ -150,7 +152,7 @@ class SummaHTC():
 
     def __init__(self, HOST_NAME="localhost", user_name="", task_name="",
                  workspace="./workspace", summafolder="./summatest",
-                 jobName='sHTC', nTimes=1, nNodes=1, ppn=1, isGPU=False, walltime=10,
+                 jobName='sHTC', nTimes=10, nNodes=1, ppn=1, isGPU=False, walltime=10,
                  exe='date',snow_freeze_scale=50.0000, tempRangeTimestep=2.000, rootDistExp1=0.0, rootDistExp2=1.0,
                  k_soil1=1.0, k_soil2=100, qSurfScale1=1.0, qSurfScale2=100.0, summerLAI1=0.1,
                  summerLAI2=10.0, step1=1, step2=1, step3=1, step4=1, summaoption="simpleResistance"):
@@ -661,7 +663,7 @@ class SummaHTC():
                     result = comm_obj.runCommand('date; qstat -a %s | sed 1,3d ' % jobIds_str)
                     status.value = '<pre><font size=2>%s\n</font></pre>' % (result)
                 try:
-                    t = q.get_nowait()
+                    q.get_nowait()
                 except queue.Empty:
                     pass
                 else:
@@ -709,10 +711,25 @@ class SummaHTC():
                 shutil.rmtree(output_files)
             os.makedirs(output_files)
             output.value += '<br>Downloading outputs from %s to %s</br>' % (remoteSummaDir, output_files)
-            comm_obj.sftp.get(remoteSummaDir + "/{}.stdout".format(jobName), output_files + "/out.stdout")
+
             ## got strange "Premission Denied" issue on err file
             #comm_obj.downloadFile(output_files, "/{}.stderr".format(jobName), remoteSummaDir, "out.stderr",)
-            comm_obj.downloadFolder(output_files, remoteSummaDir + "/summaTestCases/output")
+            #comm_obj.downloadFolder(output_files, remoteSummaDir + "/summaTestCases/output")
+
+            #zip up remote folder
+            remote_zip_target_folder_path = os.path.join(remoteSummaDir, "summaTestCases/output/output1")
+            remote_zip_f_path = "{}_{}.zip".format(remoteSummaDir, jobId_remote)
+            local_zip_f_path = output_files+".zip"
+            comm_obj.runCommandBlock('cd {}; zip -r {} ./'.format(remote_zip_target_folder_path, remote_zip_f_path))
+            comm_obj.sftp.get(remote_zip_f_path, local_zip_f_path)
+
+            with zipfile.ZipFile(output_files+".zip", "r") as zip_ref:
+                zip_ref.extractall(output_files)
+
+            comm_obj.sftp.get(remoteSummaDir + "/{}.stdout".format(jobName), output_files + "/out.stdout")
+            os.remove(local_zip_f_path)
+            comm_obj.runCommandBlock('rm -rf {}'.format(remote_zip_f_path))
+
             output.value += '<br>The output should be in your Jupyter <a href="output/">login folder</a></font>'
             #   filesSelector = FileBrowser(output_files)
             #   display(filesSelector.widget())
@@ -823,10 +840,14 @@ class SummaHTC():
         def submit(b):
             uuid4_str = str(uuid.uuid4())[:8]
             now_utc = datetime.utcnow()
-            jobid_htc = "{}_{}_{}".format(now_utc.strftime("utc%Y%m%d-%H%M%S"), str(int(now_utc.timestamp())), uuid4_str)
+            #jobid_htc = "{}_{}_{}".format(now_utc.strftime("utc%Y%m%d-%H%M%S"), str(int(now_utc.timestamp())), uuid4_str)
+            jobid_htc = str(int(now_utc.timestamp()))
+
             global param_trail_LofD
             param_trail_LofD = generate_param_trail_LofD_from_UI()
+
             for item in param_trail_LofD:
+                item["id_htc"] = jobid_htc
                 print(item)
 
             t_update_remote_jobs_status = Thread(target=update_remote_jobs_status,
@@ -839,7 +860,7 @@ class SummaHTC():
                 upload_task(self.jobName, jobid_htc, case_id=param_trail_D["id"])
                 jobview.value = self.job_template.substitute(
                     allocation=location.value,
-                    jobname="{}_{}_{}".format(jobName.value, uuid4_str, str(param_trail_D["id"])),
+                    jobname="{}_{}_{}".format(jobName.value, jobid_htc, str(param_trail_D["id"])),
                     n_times=nTimes.value,
                     n_nodes=int(nTimes.value / 20 + 1),
                     is_gpu=isGPU.value.lower().replace(' ', ''),
@@ -880,6 +901,10 @@ class SummaHTC():
                 t.join()
             q.put(1)
             t_update_remote_jobs_status.join()
+            with open('./jobs_info.json', 'w') as outfile:
+                json.dump(param_trail_LofD, outfile)
+            print("HTC run done; Jobs info saved to ./jobs_info.json")
+            pass
 
         def submit_old(b):
 
