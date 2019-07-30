@@ -38,6 +38,8 @@ from .comm import SSHComm
 import queue
 import zipfile
 import json
+import pandas as pd
+pd.set_option('display.max_colwidth', -1)
 
 #from FileBrowser import FileBrowser
 # logger configuration 
@@ -396,8 +398,8 @@ class SummaHTC():
         )
 
         rde=FloatRangeSlider(
-            value=[0.0, 1.0],
-            min=0.0,
+            value=[0.1, 0.3],
+            min=0.1,
             max=1.0,
             step=0.1,
             continuous_update=False,
@@ -1175,3 +1177,46 @@ class SummaHTC():
     
     #def showDetail(self, jobId): # Not handling large output
     #    print(self.__runCommand('qstat -f %s'%jobId))
+
+
+class JobsInfo(object):
+
+    def __init__(self, jobs_info_json_path, workspace_path):
+        self._df = self._parse_jobs_json(jobs_info_json_path)
+        self._workspace_path = os.path.abspath(workspace_path)
+        self._df.insert(len(self._df.columns), 'folder', '')
+        for index, row in self._df.iterrows():
+            self._df.loc[index, 'folder'] = os.path.join(self._workspace_path,
+                                                         "output",
+                                                         "sHTC_{}".format(row.id_htc),
+                                                         "{}_{}".format(row.id, row.id_remote))
+
+    def _parse_jobs_json(self, jobs_info_json_path):
+        df = pd.read_json(jobs_info_json_path)
+        return df
+
+    def query_job(self, query_dict):
+
+        query_str_list = []
+        for k, v in query_dict.items():
+            if type(v) is str:
+                query_str_list.append(f'{k}=="{v}"')
+            else:
+                query_str_list.append(f'{k}=={v}')
+        query_str = ' & '.join(query_str_list)
+        print(query_str)
+        return self._df.query(query_str)
+
+    def get_nc_path(self, _df, nc_rpath):
+        #"wrrPaperTestCases/figure07/vegImpactsTranspire_output_simpleResistance_timestep.nc"
+        nc_list = []
+        for index, row in _df.iterrows():
+            p = os.path.join(row.folder,
+                             nc_rpath)
+
+            nc_list.append(p)
+        return nc_list
+
+    def get_nc_path_by_query(self, query_dict, nc_rpath):
+        return self.get_nc_path(self.query_job(query_dict), nc_rpath)
+
