@@ -1192,7 +1192,7 @@ class JobsInfo(object):
                                                          "{}_{}".format(row.id, row.id_remote))
 
     def _parse_jobs_json(self, jobs_info_json_path):
-        df = pd.read_json(jobs_info_json_path)
+        df = pd.read_json(jobs_info_json_path, precise_float=True)
         return df
 
     def query_job(self, query_dict):
