@@ -1,59 +1,23 @@
 from __future__ import print_function
 import warnings
 warnings.filterwarnings("ignore", message="numpy.dtype size changed")
-from ipywidgets import *
-from IPython.display import display
 from getpass import getpass
-import glob
 import os
-import stat
 import paramiko
 from string import Template
-from os.path import expanduser
-from pkg_resources import resource_string
-from IPython.core.magic import (register_line_magic, register_cell_magic,register_line_cell_magic)
-import hashlib
-from itertools import cycle
-from IPython.display import IFrame
-from threading import Thread
-import time
-import logging
 from sys import exit
-import shutil
-import re
-import random
-import fileinput
-import sys
+import logging
+
+logger = logging.getLogger(__name__)
 
 # class JobManager(object):
 #     # threading to manage multiple jobs
 #     pass
 #
 
-KEELING_SUMMA_TEMPLATE='''#!/bin/bash
-#SBATCH --job-name=$jobname
-#SBATCH --nodes=$n_nodes
-#SBATCH -t $walltime
-#SBATCH --output=$stdout
-#SBATCH -e $stderr
 
-$exe'''
-
-
-USER_SUMMA_TEMPLATE='''#!/bin/bash
-SUMMA_EXE=/code/bin/summa.exe
-SUMMA_SETTING=$settingpath
-
-if  [ -z ${SUMMA_EXE} ]
-    then
-        echo "Can not find the SUMMA executable SUMMA_EXE"
-        exit 1
-fi
-
-${SUMMA_EXE} -p never -s $casename -m ${SUMMA_SETTING}'''
-
-
-class CyberGISJob(object):
+class Job(object):
+    backend = ""  # keeling or comet
     name = ""
     local_id = ""
     remote_id = ""
@@ -74,99 +38,140 @@ class CyberGISJob(object):
         # no remote_id
         self.ssh_connection.upload(self.local_data_path,
                                    self.remote_data_path)
-        pass
 
     def submit(self):
         # submit job to HPC scheduler
         self.ssh_connection.runCommand(self.sbatch_script)
         self.remote_id = ""
 
-
     def download(self):
         # download job from HPC to local
         self.ssh_connection.download(self.remote_output_path, self.local_output_path)
-        pass
 
 
-class SummaJob(CyberGISJob):
+class SummaJob(Job):
 
 
     pass
 
 
 class AbstractScript(object):
-    def generarte_script(self):
-        pass
+    def generate_script(self, *args, **kargs):
+        raise NotImplementedError()
 
 
 class SBatchScript(AbstractScript):
-    curr_machine = None
     walltime = int(100)
     node = int(1)
     jobname = None
     stdout = None ## Path to output 
-    stderr = None ## Path to error
+    stderr = None ## Path to
 
 
-class UserScript(AbstractScript):
-    curr_machine = None
+class KeelingSBatchScript(SBatchScript):
 
-class SummaSBatchScript(UserScript):
-    def __init__(walltime, node, jobname, stdout, stderr, curr_machine = "keeling"):
-        self.curr_machine=curr_machine
-        self.node=node
-        self.jobname=jobname
-        self.stdout=stdout
-        self.stderr=stderr
-        self.curr_machine=curr_machine
-    def generarte_script():
-        if (curr_machine=="keeling"):
-            sbscript = KEELING_SUMMA_TEMPLATE.substitute(
-                jobname = self.jobname,
-                n_nodes = self. node,
-                walltime = self.walltime,
-                stdout = self.stdout,
-                stderr = self.stderr,
-                exe = "singularity exec summa.simg ./runSummaTest.sh"
-                )
+    KEELING_SBATCH_TEMPLATE = '''
+#!/bin/bash
+#SBATCH --job-name=$jobname
+#SBATCH --nodes=$n_nodes
+#SBATCH -t $walltime
+#SBATCH --output=$stdout
+#SBATCH -e $stderr
+
+$exe'''
+
+    def __init__(self, walltime, node, jobname, stdout, stderr, exec=None):
+        self.walltime = walltime
+        self.node = node
+        self.jobname = jobname
+        self.stdout = stdout
+        self.stderr = stderr
+        self.exec = exec
+
+    def generate_script(self, local_path=None):
+        sbscript = Template(self.KEELING_SBATCH_TEMPLATE).substitute(
+            jobname=self.jobname,
+            n_nodes=self. node,
+            walltime=self.walltime,
+            stdout=self.stdout,
+            stderr=self.stderr,
+            exe=self.exec
+            )
+        logger.debug(sbscript)
+        if local_path is None:
             return sbscript
         else:
-            logger.warn("Unknown Machine")
+            with open(local_path, 'w') as f:
+                f.write(sbscript)
+            logging.debug("KeelingSBatchScript saved to {}".format(local_path))
 
 
+class SummaKeelingSBatchScript(KeelingSBatchScript):
+
+    simg_remote_path = None
+    userscript_remote_path = None
+    EXEC = "singularity exec $simg $userscript"
+
+    def __init__(self, walltime, node, jobname, stdout, stderr, simg_path, userscript_path):
+        _exec = Template(self.EXEC).substitute(simg=simg_path, userscript=userscript_path)
+        super().__init__(walltime, node, jobname, stdout, stderr, _exec)
 
 
-class SummaUserScript(UserScript):
-    userscriptname = None
+class SummaUserScript(AbstractScript):
+
+    SUMMA_USER_TEMPLATE = '''
+#!/bin/bash
+SUMMA_EXE=/code/bin/summa.exe
+SUMMA_SETTING=$settingpath
+
+if  [ -z ${SUMMA_EXE} ]
+    then
+        echo "Can not find the SUMMA executable SUMMA_EXE"
+        exit 1
+fi
+
+${SUMMA_EXE} -p never -s $casename -m ${SUMMA_SETTING}'''
+
     settingpath = None
     casename = None
-    def __init__(settingpath, casename, userscriptname="runSummaTest.sh", curr_machine= "keeling"):
-        self.settingpath=settingpath
-        self.casename=casename
-        self.userscriptname=userscriptname
-        self.curr_machine=curr_machine
-    def getscriptname(self):
-        return self.userscriptname
-    def generarte_script():
-        if (curr_machine=="keeling"):
-            uscript = USER_SUMMA_TEMPLATE.substitute(
-                settingpath = self.settingpath,
-                casename = self.casename
+    userscript_fname = "runSummaTest.sh"
+
+    def __init__(self, settingpath, casename):
+        self.settingpath = settingpath
+        self.casename = casename
+
+    def generate_script(self, local_folder_path):
+
+        uscript = self.SUMMA_USER_TEMPLATE.substitute(
+                settingpath=self.settingpath,
+                casename=self.casename
                 )
+        logger.debug(uscript)
+        if not os.path.exists(local_folder_path) or not os.path.isdir(local_folder_path):
             return uscript
         else:
-            logger.warn("Unknown Machine")
+            local_path = os.path.join(local_folder_path, self.userscript_fname)
+            with open(local_path, "w") as f:
+                f.write(uscript)
+            logging.debug("SummaUserScript saved to {}".format(local_path))
 
-import logging
+
+class UtilsMixin(object):
+
+    def remove_new_line(self, in_str):
+        out_str = in_str.replace("\r", "").replace("\n", "")
+        return out_str
 
 
-class SSHConnection(object):
+class SSHConnection(UtilsMixin, object):
     _client = None
     _sftp = None
     server_url = None
     user_name = None
     user_pw = None
     key_path = None
+    remote_user_name = None
+    remote_login_path = None
 
     def __init__(self, server_url, user_name=None, user_pw=None, key_path=None):
         self.server_url = server_url
@@ -177,6 +182,8 @@ class SSHConnection(object):
         self.key_path = key_path
 
         self._login()
+        self.get_login_path()
+        self.get_login_uname()
         self._sftp = self.client.open_sftp()
 
     @property
@@ -194,7 +201,8 @@ class SSHConnection(object):
 
     def _login_key(self):
         self._client.connect(self.server_url,
-                            key_filename=self.key_path)
+                             username=self.user_name,
+                             key_filename=self.key_path)
 
     def _login(self):
 
@@ -212,7 +220,8 @@ class SSHConnection(object):
         print("SSH logged off {}".format(self.server_url))
 
     def upload_file(self, local_fpath, remote_fpath, *args, **kwargs):
-        self.sftp.put(self.before_upload_file(local_fpath, remote_fpath, *args, **kwargs))
+        local_fpath, remote_fpath = self.before_upload_file(local_fpath, remote_fpath, *args, **kwargs)
+        self.sftp.put(local_fpath, remote_fpath)
         self.after_upload_file(local_fpath, remote_fpath, *args, **kwargs)
 
     def before_upload_file(self, local_fpath, remote_fpath, *args, **kwargs):
@@ -227,15 +236,50 @@ class SSHConnection(object):
         self.sftp.get(remote_fpath,
                       local_fpath)
 
+    def run_command(self, command):
+        try:
+            stdin, stdout, stderr = self._client.exec_command(command)
+        except Exception as e:
+            logger.warning("error when run command " + command + " caused by " + str(e))
+            raise e
+        out = stdout.readlines()
+        err = stderr.readlines()
+        if len(err) > 0:
+            logger.warning("run_command {} got error {}".format(command, ';'.join(err)))
+        return self.remove_new_line(''.join(out))
+
+    def get_login_path(self):
+        self.remote_login_path = self.get_pwd()
+
+    def get_login_uname(self):
+        out = self.run_command("whoami")
+        self.remote_user_name = out
+
+    def get_pwd(self):
+        return self.run_command("pwd")
+
+
+
+
+
 
 if __name__ == "__main__":
 
 
-    keeling = SSHConnection("hsjp07.cigi.illinois.edu", user_name="zhiyul")
-    print(keeling)
+    keeling = SSHConnection("keeling.earth.illinois.edu", user_name="cigi-gisolve", key_path="/Users/zhiyul/Documents/Projects/summa/Jupyter-xsede/cybergis/keeling.key")
+    keeling.upload_file(os.path.join(os.path.abspath(__file__)),
+                        os.path.join(keeling.remote_login_path, "g.py"))
+
+    print(keeling.remote_user_name, keeling.remote_login_path)
+    pass
+
+    # sbatch = SummaKeelingSBatchScript(1, 2, "test", "out", "stderr", 'simg_path', "userscript_path")
+    # uscript = SummaUserScript()
+    # print(sbatch.generarte_script("./abc.sh"))
 
 
 class KeelingSSHConnection(object):
+
     jobDir = None
     host = None
 
