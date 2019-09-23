@@ -20,8 +20,7 @@ import time
 import logging
 from sys import exit
 import shutil
-import re 
-from .summaVis import summaVis
+import re
 import random
 import fileinput
 import sys
@@ -109,6 +108,9 @@ class SBatchScript(AbstractScript):
     stderr = None ## Path to error
 
 
+class UserScript(AbstractScript):
+    curr_machine = None
+
 class SummaSBatchScript(UserScript):
     def __init__(walltime, node, jobname, stdout, stderr, curr_machine = "keeling"):
         self.curr_machine=curr_machine
@@ -131,8 +133,7 @@ class SummaSBatchScript(UserScript):
         else:
             logger.warn("Unknown Machine")
 
-class UserScript(AbstractScript):
-    curr_machine = None
+
 
 
 class SummaUserScript(UserScript):
@@ -144,7 +145,7 @@ class SummaUserScript(UserScript):
         self.casename=casename
         self.userscriptname=userscriptname
         self.curr_machine=curr_machine
-    def getscriptname:
+    def getscriptname(self):
         return self.userscriptname
     def generarte_script():
         if (curr_machine=="keeling"):
@@ -156,10 +157,85 @@ class SummaUserScript(UserScript):
         else:
             logger.warn("Unknown Machine")
 
+import logging
 
 
 class SSHConnection(object):
+    _client = None
+    _sftp = None
+    server_url = None
+    user_name = None
+    user_pw = None
+    key_path = None
 
+    def __init__(self, server_url, user_name=None, user_pw=None, key_path=None):
+        self.server_url = server_url
+        self._client = paramiko.SSHClient()
+        self._client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        self.user_name = user_name
+        self.user_pw = user_pw
+        self.key_path = key_path
+
+        self._login()
+        self._sftp = self.client.open_sftp()
+
+    @property
+    def client(self):
+        return self._client
+
+    @property
+    def sftp(self):
+        return self._sftp
+
+    def _login_password(self):
+        self._client.connect(self.server_url,
+                            username=self.user_name,
+                            password=self.user_pw)
+
+    def _login_key(self):
+        self._client.connect(self.server_url,
+                            key_filename=self.key_path)
+
+    def _login(self):
+
+        if self.key_path is not None:
+            self._login_key()
+        elif self.user_pw is None:
+            print("user password")
+            self.user_pw = getpass()
+            self._login_password()
+        logging.DEBUG("SSH logged into {}".format(self.server_url))
+
+    def logout(self):
+        self._client.close()
+        self._sftp.close()
+        logging.DEBUG("SSH logged off {}".format(self.server_url))
+
+    def upload_file(self, local_fpath, remote_fpath, *args, **kwargs):
+        self.sftp.put(self.before_upload_file(local_fpath, remote_fpath, *args, **kwargs))
+        self.after_upload_file(local_fpath, remote_fpath, *args, **kwargs)
+
+    def before_upload_file(self, local_fpath, remote_fpath, *args, **kwargs):
+        return (local_fpath.strip(), remote_fpath.strip())
+
+    def after_upload_file(self,local_fpath, remote_fpath, *args, **kwargs):
+        pass
+
+    def download_file(self, remote_fpath, local_fpath):
+        remote_fpath = remote_fpath.strip()
+        local_fpath = local_fpath.strip()
+        self.sftp.get(remote_fpath,
+                      local_fpath)
+
+
+if __name__ is "__main__":
+
+
+    keeling = SSHConnection("hsjp07.cigi.illinois.edu", user_name="zhiyul")
+    print(keeling)
+
+
+class KeelingSSHConnection(object):
     jobDir = None
     host = None
 
@@ -167,38 +243,36 @@ class SSHConnection(object):
         if not os.path.exists(self.jobDir):
             os.makedirs(self.jobDir)
         login_success = False
-        if (self.host_userName=='cigi-gisolve'):
+        if (self.host_userName == 'cigi-gisolve'):
             try:
                 self.__client.connect(self.host, username=self.host_userName, key_filename='/opt/cybergis/.gisolve.key')
-                self.__sftp=self.__client.open_sftp()
+                self.__sftp = self.__client.open_sftp()
             except Exception as e:
                 logger.warn("can not connect to server " + self.host + ", caused by " + str(e))
                 exit()
             else:
-                logger.info('Successfully logged in as %s'%self.host_userName)        
+                logger.info('Successfully logged in as %s' % self.host_userName)
                 login_success = True
                 self.pw = None
 
         else:
             while not login_success:
-                pw=getpass(prompt='Password')
+                pw = getpass(prompt='Password')
                 try:
                     self.__client.connect(self.host, username=self.host_userName, password=pw)
-                    self.__sftp=self.__client.open_sftp()
+                    self.__sftp = self.__client.open_sftp()
                 except Exception as e:
                     logger.warn("can not connect to server " + self.host + ", caused by " + str(e))
                     exit()
                 else:
-                    logger.info('Successfully logged in as %s'%self.host_userName)        
+                    logger.info('Successfully logged in as %s' % self.host_userName)
                     login_success = True
                     self.pw = pw
         if 'exists' not in self.__runCommand("if [ -d " + HPC_PRJ + " ]; then echo 'exists'; fi"):
-            self.__runCommand("mkdir "+ HPC_PRJ)
-  
-        moduleList = self.__runCommand("module avail 2>&1 | grep -v '/sw' | tr ' ' '\n' | sed '/^$/d' | sort") 
+            self.__runCommand("mkdir " + HPC_PRJ)
 
-        self.module_avail = {_:_  for _ in moduleList.replace('(default)','').split() if _.count('-') < 3}
+        moduleList = self.__runCommand("module avail 2>&1 | grep -v '/sw' | tr ' ' '\n' | sed '/^$/d' | sort")
+
+        self.module_avail = {_: _ for _ in moduleList.replace('(default)', '').split() if _.count('-') < 3}
         self.m = self.module_avail
-        self.modules = set()    
-
-
+        self.modules = set()
