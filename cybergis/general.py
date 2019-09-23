@@ -204,12 +204,12 @@ class SSHConnection(object):
             print("user password")
             self.user_pw = getpass()
             self._login_password()
-        logging.DEBUG("SSH logged into {}".format(self.server_url))
+        print("SSH logged into {}".format(self.server_url))
 
     def logout(self):
         self._client.close()
         self._sftp.close()
-        logging.DEBUG("SSH logged off {}".format(self.server_url))
+        print("SSH logged off {}".format(self.server_url))
 
     def upload_file(self, local_fpath, remote_fpath, *args, **kwargs):
         self.sftp.put(self.before_upload_file(local_fpath, remote_fpath, *args, **kwargs))
@@ -228,7 +228,7 @@ class SSHConnection(object):
                       local_fpath)
 
 
-if __name__ is "__main__":
+if __name__ == "__main__":
 
 
     keeling = SSHConnection("hsjp07.cigi.illinois.edu", user_name="zhiyul")
