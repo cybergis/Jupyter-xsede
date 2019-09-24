@@ -7,6 +7,8 @@ import paramiko
 from string import Template
 from sys import exit
 import logging
+import shutil
+import tempfile
 
 logger = logging.getLogger(__name__)
 logger.setLevel("DEBUG")
@@ -168,6 +170,25 @@ class UtilsMixin(object):
         out_str = in_str.replace("\r", "").replace("\n", "")
         return out_str
 
+    def zip_folder(self, local_dir, output_dir=None):
+        """
+        Zip up a local folder /A/B/C, output zip filename: C.zip
+        :param local_dir: Path to a local folder: /A/B/C
+        :param output_dir: where to put C.zip in; default(None): put C.zip in a random temp folder
+        :return: full path to output zip file C.zip
+        """
+        if not os.path.isdir(local_dir):
+            raise Exception("Not a folder: {}".format(local_dir))
+        folder_name = os.path.basename(local_dir)
+        parent_path = os.path.dirname(local_dir)
+        if output_dir is None:
+            output_fprefix = os.path.join(tempfile.mkdtemp(), folder_name)
+        else:
+            output_fprefix = os.path.join(output_dir, folder_name)
+        shutil.make_archive(output_fprefix, "zip", parent_path, folder_name)
+        zip_fpath = output_fprefix + ".zip"
+        logger.debug("Zipping folder {} to {}".format(local_dir, zip_fpath))
+        return zip_fpath
 
 class SSHConnection(UtilsMixin):
     _client = None
@@ -224,8 +245,36 @@ class SSHConnection(UtilsMixin):
         self._sftp.close()
         logger.debug("SSH logged off {}".format(self.server_url))
 
-    def upload_file(self, local_fpath, remote_fpath, *args, **kwargs):
-        self.sftp.put(local_fpath.strip(), remote_fpath.strip())
+    def upload(self, local_fpath, remote_fpath,
+               remote_is_folder=False, unzip=False, *args, **kwargs):
+        """
+        Upload a file or a folder to remote
+        local file --> remote file
+        local file --> remote folder
+        local folder --> remote folder (zip and unzip)
+        :param local_fpath: full path to local file or folder
+        :param remote_fpath: full path to remote file or folder
+        :param remote_is_folder: whether remote_is_folder is a folder path
+        :param unzip: whether to unzip on remote
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        local_fpath = local_fpath.strip()
+        remote_fpath = remote_fpath.strip()
+        if os.path.isdir(local_fpath):
+            if not remote_is_folder:
+                raise Exception("if remote must be a folder when local is folder")
+            zip_fpath = self.zip_folder(local_fpath)
+            local_fpath = zip_fpath
+            unzip = True
+        local_fname = os.path.basename(local_fpath)
+        if remote_is_folder:
+            remote_fpath = os.path.join(remote_fpath, local_fname)
+        logger.debug("Uploading {} to {}".format(local_fname,remote_fpath))
+        self.sftp.put(local_fpath, remote_fpath)
+        if unzip and remote_fpath.lower().endswith(".zip"):
+            self.run_command("unzip -o {} -d {}".format(remote_fpath, os.path.dirname(remote_fpath)))
 
     def download_file(self, remote_fpath, local_fpath, *args, **kwargs):
 
@@ -293,6 +342,10 @@ if __name__ == "__main__":
     sbatch = SummaKeelingSBatchScript(1, 2, "test", "out", "stderr", 'simg_path', "userscript_path")
     uscript = SummaUserScript('settingpath', 'casename')
     print(sbatch.generate_script("./abc.sh"))
+
+    zip = keeling.upload("/Users/zhiyul/Downloads/111abc2", "/tmp", remote_is_folder=True)
+    keeling.ls(remote_path="/tmp")
+
 
 
 class KeelingSSHConnection(object):
