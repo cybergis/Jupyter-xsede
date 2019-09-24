@@ -9,6 +9,11 @@ from sys import exit
 import logging
 
 logger = logging.getLogger(__name__)
+logger.setLevel("DEBUG")
+streamHandler = logging.StreamHandler()
+formatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
+streamHandler.setFormatter(formatter)
+logger.addHandler(streamHandler)
 
 # class JobManager(object):
 #     # threading to manage multiple jobs
@@ -63,9 +68,10 @@ class AbstractScript(object):
 class SBatchScript(AbstractScript):
     walltime = int(100)
     node = int(1)
-    jobname = None
-    stdout = None ## Path to output 
-    stderr = None ## Path to
+    jobname = ""
+    stdout = None  # Path to output
+    stderr = None  # Path to err
+    exec = ""
 
 
 class KeelingSBatchScript(SBatchScript):
@@ -80,7 +86,7 @@ class KeelingSBatchScript(SBatchScript):
 
 $exe'''
 
-    def __init__(self, walltime, node, jobname, stdout, stderr, exec=None):
+    def __init__(self, walltime, node, jobname, stdout, stderr, exec, *args, **kargs):
         self.walltime = walltime
         self.node = node
         self.jobname = jobname
@@ -103,7 +109,7 @@ $exe'''
         else:
             with open(local_path, 'w') as f:
                 f.write(sbscript)
-            logging.debug("KeelingSBatchScript saved to {}".format(local_path))
+            logger.debug("KeelingSBatchScript saved to {}".format(local_path))
 
 
 class SummaKeelingSBatchScript(KeelingSBatchScript):
@@ -112,9 +118,9 @@ class SummaKeelingSBatchScript(KeelingSBatchScript):
     userscript_remote_path = None
     EXEC = "singularity exec $simg $userscript"
 
-    def __init__(self, walltime, node, jobname, stdout, stderr, simg_path, userscript_path):
+    def __init__(self, walltime, node, jobname, stdout, stderr, simg_path, userscript_path, *args, **kargs):
         _exec = Template(self.EXEC).substitute(simg=simg_path, userscript=userscript_path)
-        super().__init__(walltime, node, jobname, stdout, stderr, _exec)
+        super().__init__(walltime, node, jobname, stdout, stderr, _exec, *args, **kargs)
 
 
 class SummaUserScript(AbstractScript):
@@ -136,11 +142,11 @@ ${SUMMA_EXE} -p never -s $casename -m ${SUMMA_SETTING}'''
     casename = None
     userscript_fname = "runSummaTest.sh"
 
-    def __init__(self, settingpath, casename):
+    def __init__(self, settingpath, casename, *args, **kargs):
         self.settingpath = settingpath
         self.casename = casename
 
-    def generate_script(self, local_folder_path):
+    def generate_script(self, local_folder_path, *args, **kargs):
 
         uscript = self.SUMMA_USER_TEMPLATE.substitute(
                 settingpath=self.settingpath,
@@ -158,12 +164,12 @@ ${SUMMA_EXE} -p never -s $casename -m ${SUMMA_SETTING}'''
 
 class UtilsMixin(object):
 
-    def remove_new_line(self, in_str):
+    def remove_newlines(self, in_str):
         out_str = in_str.replace("\r", "").replace("\n", "")
         return out_str
 
 
-class SSHConnection(UtilsMixin, object):
+class SSHConnection(UtilsMixin):
     _client = None
     _sftp = None
     server_url = None
@@ -173,7 +179,7 @@ class SSHConnection(UtilsMixin, object):
     remote_user_name = None
     remote_login_path = None
 
-    def __init__(self, server_url, user_name=None, user_pw=None, key_path=None):
+    def __init__(self, server_url, user_name=None, user_pw=None, key_path=None, **kargs):
         self.server_url = server_url
         self._client = paramiko.SSHClient()
         self._client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -194,88 +200,99 @@ class SSHConnection(UtilsMixin, object):
     def sftp(self):
         return self._sftp
 
-    def _login_password(self):
+    def _login_with_password(self, *args, **kwargs):
         self._client.connect(self.server_url,
-                            username=self.user_name,
-                            password=self.user_pw)
+                             username=self.user_name,
+                             password=self.user_pw)
 
-    def _login_key(self):
+    def _login_with_key(self, *args, **kwargs):
         self._client.connect(self.server_url,
                              username=self.user_name,
                              key_filename=self.key_path)
 
-    def _login(self):
-
+    def _login(self, *args, **kwargs):
         if self.key_path is not None:
-            self._login_key()
+            self._login_with_key()
         elif self.user_pw is None:
-            print("user password")
+            print("input password for {}".format(self.user_name))
             self.user_pw = getpass()
-            self._login_password()
-        print("SSH logged into {}".format(self.server_url))
+            self._login_with_password()
+        logger.debug("SSH logged into {}".format(self.server_url))
 
-    def logout(self):
+    def logout(self, *args, **kwargs):
         self._client.close()
         self._sftp.close()
-        print("SSH logged off {}".format(self.server_url))
+        logger.debug("SSH logged off {}".format(self.server_url))
 
     def upload_file(self, local_fpath, remote_fpath, *args, **kwargs):
-        local_fpath, remote_fpath = self.before_upload_file(local_fpath, remote_fpath, *args, **kwargs)
-        self.sftp.put(local_fpath, remote_fpath)
-        self.after_upload_file(local_fpath, remote_fpath, *args, **kwargs)
+        self.sftp.put(local_fpath.strip(), remote_fpath.strip())
 
-    def before_upload_file(self, local_fpath, remote_fpath, *args, **kwargs):
-        return (local_fpath.strip(), remote_fpath.strip())
+    def download_file(self, remote_fpath, local_fpath, *args, **kwargs):
 
-    def after_upload_file(self,local_fpath, remote_fpath, *args, **kwargs):
-        pass
+        self.sftp.get(remote_fpath.strip(), local_fpath.strip())
 
-    def download_file(self, remote_fpath, local_fpath):
-        remote_fpath = remote_fpath.strip()
-        local_fpath = local_fpath.strip()
-        self.sftp.get(remote_fpath,
-                      local_fpath)
-
-    def run_command(self, command):
+    def run_command(self, command, line_delimiter='', *args, **kwargs):
+        logger.debug("run_commnad: " + command)
         try:
             stdin, stdout, stderr = self._client.exec_command(command)
         except Exception as e:
-            logger.warning("error when run command " + command + " caused by " + str(e))
+            logger.warning("Got error running command " + command + " : " + str(e))
             raise e
-        out = stdout.readlines()
-        err = stderr.readlines()
+        out = list(map(self.remove_newlines, stdout.readlines()))
+        err = list(map(self.remove_newlines, stderr.readlines()))
+        logger.debug("out: " + str(out))
+        logger.debug("err: " + str(err))
         if len(err) > 0:
             logger.warning("run_command {} got error {}".format(command, ';'.join(err)))
-        return self.remove_new_line(''.join(out))
+        if len(out) == 0:
+            return None
+        if type(line_delimiter) is not str:
+            return out
+        return line_delimiter.join(out)
 
-    def get_login_path(self):
-        self.remote_login_path = self.get_pwd()
+    def get_login_path(self, *args, **kwargs):
+        self.remote_login_path = self.pwd()
+        return self.remote_login_path
 
-    def get_login_uname(self):
-        out = self.run_command("whoami")
+    def get_login_uname(self, *args, **kwargs):
+        out = self.whoami()
         self.remote_user_name = out
+        return self.remote_user_name
 
-    def get_pwd(self):
-        return self.run_command("pwd")
+    def whoami(self, *args, **kwargs):
+        out = self.run_command("whoami")
+        return out
 
+    def pwd(self, *args, **kwargs):
+        out = self.run_command("pwd")
+        return out
 
-
-
+    def ls(self, remote_path="./", line_delimiter=None, **kwargs):
+        """
+        run 'ls'
+        :param remote_path: ls XXX, default(./)
+        :param line_delimiter: default(None): return a list;
+        :param kwargs:
+        :return:
+        """
+        out = self.run_command("ls {}".format(remote_path if remote_path is not None else "./"),
+                               line_delimiter=line_delimiter)
+        return out
 
 
 if __name__ == "__main__":
 
+    keeling = SSHConnection("keeling.earth.illinois.edu",
+                            user_name="cigi-gisolve",
+                            key_path="/Users/zhiyul/Documents/Projects/summa/Jupyter-xsede/cybergis/keeling.key")
+    aa = keeling.run_command("cd ~")
 
-    keeling = SSHConnection("keeling.earth.illinois.edu", user_name="cigi-gisolve", key_path="/Users/zhiyul/Documents/Projects/summa/Jupyter-xsede/cybergis/keeling.key")
-    keeling.upload_file(os.path.join(os.path.abspath(__file__)),
-                        os.path.join(keeling.remote_login_path, "g.py"))
-
-    print(keeling.remote_user_name, keeling.remote_login_path)
+    print(keeling.ls())
     pass
 
-    # sbatch = SummaKeelingSBatchScript(1, 2, "test", "out", "stderr", 'simg_path', "userscript_path")
-    # uscript = SummaUserScript()
-    # print(sbatch.generarte_script("./abc.sh"))
+    sbatch = SummaKeelingSBatchScript(1, 2, "test", "out", "stderr", 'simg_path', "userscript_path")
+    uscript = SummaUserScript('settingpath', 'casename')
+    print(sbatch.generate_script("./abc.sh"))
 
 
 class KeelingSSHConnection(object):
