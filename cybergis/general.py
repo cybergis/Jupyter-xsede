@@ -9,6 +9,7 @@ from sys import exit
 import logging
 import shutil
 import tempfile
+import zipfile
 
 logger = logging.getLogger(__name__)
 logger.setLevel("DEBUG")
@@ -190,6 +191,7 @@ class UtilsMixin(object):
         logger.debug("Zipping folder {} to {}".format(local_dir, zip_fpath))
         return zip_fpath
 
+
 class SSHConnection(UtilsMixin):
     _client = None
     _sftp = None
@@ -262,7 +264,9 @@ class SSHConnection(UtilsMixin):
         """
         local_fpath = local_fpath.strip()
         remote_fpath = remote_fpath.strip()
+        cleanup = False
         if os.path.isdir(local_fpath):
+            cleanup = True
             if not remote_is_folder:
                 raise Exception("if remote must be a folder when local is folder")
             zip_fpath = self.zip_folder(local_fpath)
@@ -271,17 +275,50 @@ class SSHConnection(UtilsMixin):
         local_fname = os.path.basename(local_fpath)
         if remote_is_folder:
             remote_fpath = os.path.join(remote_fpath, local_fname)
-        logger.debug("Uploading {} to {}".format(local_fname,remote_fpath))
+        logger.debug("Uploading {} to remote @ {}".format(local_fname,remote_fpath))
         self.sftp.put(local_fpath, remote_fpath)
         if unzip and remote_fpath.lower().endswith(".zip"):
-            self.run_command("unzip -o {} -d {}".format(remote_fpath, os.path.dirname(remote_fpath)))
+            self.run_command("unzip -o {} -d {}  && rm -f {}".format(remote_fpath,
+                                                                     os.path.dirname(remote_fpath),
+                                                                    remote_fpath))
+        if cleanup:
+            os.remove(local_fpath)
+            logger.debug("Removing {}".format(local_fpath))
 
-    def download_file(self, remote_fpath, local_fpath, *args, **kwargs):
+    def download(self, remote_fpath, local_fpath,
+                 remote_is_folder=False, unzip=False, *args, **kwargs):
+        cleanup = False
+        remote_fpath = remote_fpath.strip()
+        local_fpath = local_fpath.strip()
+        if remote_is_folder:
+            if os.path.isfile(local_fpath):
+                raise Exception("local must be folder when remote is folder")
+            unzip = True
+            cleanup = True
+            remote_folder_name = os.path.basename(remote_fpath)
+            remote_folder_parent_path = os.path.dirname(remote_fpath)
+            remote_zip_fpath = os.path.join("/tmp", remote_folder_name + ".zip")
+            # zip folder up on server for download
+            self.run_command("cd {} && zip -r {} {}".format(remote_folder_parent_path,
+                                                            remote_zip_fpath,
+                                                            remote_folder_name))
+            remote_fpath = remote_zip_fpath
 
-        self.sftp.get(remote_fpath.strip(), local_fpath.strip())
+        remote_fname = os.path.basename(remote_fpath)
+        if os.path.isdir(local_fpath):
+            local_fpath = os.path.join(local_fpath, remote_fname)
+        self.sftp.get(remote_fpath, local_fpath)
+        if cleanup:
+            self.run_command("rm -f {}".format(remote_fpath))
+
+        if unzip and local_fpath.lower().endswith(".zip"):
+            with zipfile.ZipFile(local_fpath, 'r') as zip_ref:
+                zip_ref.extractall(os.path.dirname(local_fpath))
+            if cleanup:
+                os.remove(local_fpath)
 
     def run_command(self, command, line_delimiter='', *args, **kwargs):
-        logger.debug("run_commnad: " + command)
+        logger.debug("run_commnad on remote: " + command)
         try:
             stdin, stdout, stderr = self._client.exec_command(command)
         except Exception as e:
@@ -345,6 +382,9 @@ if __name__ == "__main__":
 
     zip = keeling.upload("/Users/zhiyul/Downloads/111abc2", "/tmp", remote_is_folder=True)
     keeling.ls(remote_path="/tmp")
+
+    keeling.download("/tmp/111abc2", "/tmp/test", remote_is_folder=True)
+
 
 
 
