@@ -137,17 +137,13 @@ class KeelingSBatchScript(SBatchScript):
 #SBATCH --job-name=$jobname
 #SBATCH --nodes=$n_nodes
 #SBATCH -t $walltime
-#SBATCH --output=$stdout
-#SBATCH -e $stderr
 
 $exe'''
 
-    def __init__(self, walltime, node, jobname, stdout, stderr, exec, *args, **kargs):
+    def __init__(self, walltime, node, jobname, exec, *args, **kargs):
         self.walltime = walltime
         self.node = node
         self.jobname = jobname
-        self.stdout = stdout
-        self.stderr = stderr
         self.exec = exec
 
     def generate_script(self, local_path=None):
@@ -155,14 +151,13 @@ $exe'''
             jobname=self.jobname,
             n_nodes=self. node,
             walltime=self.walltime,
-            stdout=self.stdout,
-            stderr=self.stderr,
             exe=self.exec
             )
         logger.debug(sbscript)
         if local_path is None:
             return sbscript
         else:
+            local_path=local_path+"/sbatch.sh"
             with open(local_path, 'w') as f:
                 f.write(sbscript)
             logger.debug("KeelingSBatchScript saved to {}".format(local_path))
@@ -174,9 +169,10 @@ class SummaKeelingSBatchScript(KeelingSBatchScript):
     userscript_remote_path = None
     EXEC = "singularity exec $simg $userscript"
 
-    def __init__(self, walltime, node, jobname, stdout, stderr, simg_path, userscript_path, *args, **kargs):
-        _exec = Template(self.EXEC).substitute(simg=simg_path, userscript=userscript_path)
-        super().__init__(walltime, node, jobname, stdout, stderr, _exec, *args, **kargs)
+    def __init__(self, walltime, node, jobname, userscript_path, *args, **kargs):
+        userscript_path=userscript_path+"/run.py"
+        _exec = Template(self.EXEC).substitute(simg="/data/keeling/a/zhiyul/images/pysumma_ensemble.img", userscript=userscript_path)
+        super().__init__(walltime, node, jobname, _exec, *args, **kargs)
 
 
 class SummaUserScript(AbstractScript):
