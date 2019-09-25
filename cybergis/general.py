@@ -10,6 +10,7 @@ import logging
 import shutil
 import tempfile
 import zipfile
+import uuid
 
 logger = logging.getLogger(__name__)
 logger.setLevel("DEBUG")
@@ -39,6 +40,17 @@ class Job(object):
     local_data_path = ""
     local_output_path = ""
     ssh_connection = None
+
+    def random_id(self, digit=10, prefix=str(), suffix=str()):
+        id = str(uuid.uuid4()).replace("-", "")
+        if digit < 8:
+            digit = 8
+        elif digit > 32:
+            digit = 32
+        out = "{pre}{id}{suf}".format(pre=prefix,
+                                      id=id[0:digit],
+                                      suf=suffix)
+        return out
 
     def upload(self):
         # organize run_script and local data
@@ -171,7 +183,7 @@ class UtilsMixin(object):
         out_str = in_str.replace("\r", "").replace("\n", "")
         return out_str
 
-    def zip_folder(self, local_dir, output_dir=None):
+    def zip_local_folder(self, local_dir, output_dir=None):
         """
         Zip up a local folder /A/B/C, output zip filename: C.zip
         :param local_dir: Path to a local folder: /A/B/C
@@ -269,18 +281,16 @@ class SSHConnection(UtilsMixin):
             cleanup = True
             if not remote_is_folder:
                 raise Exception("if remote must be a folder when local is folder")
-            zip_fpath = self.zip_folder(local_fpath)
+            zip_fpath = self.zip_local_folder(local_fpath)
             local_fpath = zip_fpath
             unzip = True
         local_fname = os.path.basename(local_fpath)
         if remote_is_folder:
             remote_fpath = os.path.join(remote_fpath, local_fname)
-        logger.debug("Uploading {} to remote @ {}".format(local_fname,remote_fpath))
-        self.sftp.put(local_fpath, remote_fpath)
+        self._sftp_push(local_fpath, remote_fpath)
         if unzip and remote_fpath.lower().endswith(".zip"):
-            self.run_command("unzip -o {} -d {}  && rm -f {}".format(remote_fpath,
-                                                                     os.path.dirname(remote_fpath),
-                                                                    remote_fpath))
+            self.remote_unzip(remote_fpath, os.path.dirname(remote_fpath))
+            self.remote_rm(remote_fpath)
         if cleanup:
             os.remove(local_fpath)
             logger.debug("Removing {}".format(local_fpath))
@@ -291,23 +301,20 @@ class SSHConnection(UtilsMixin):
         remote_fpath = remote_fpath.strip()
         local_fpath = local_fpath.strip()
         if remote_is_folder:
-            if os.path.isfile(local_fpath):
+            if not os.path.isdir(local_fpath):
                 raise Exception("local must be folder when remote is folder")
             unzip = True
             cleanup = True
             remote_folder_name = os.path.basename(remote_fpath)
-            remote_folder_parent_path = os.path.dirname(remote_fpath)
             remote_zip_fpath = os.path.join("/tmp", remote_folder_name + ".zip")
             # zip folder up on server for download
-            self.run_command("cd {} && zip -r {} {}".format(remote_folder_parent_path,
-                                                            remote_zip_fpath,
-                                                            remote_folder_name))
+            self.remote_zip(remote_fpath, remote_zip_fpath)
             remote_fpath = remote_zip_fpath
 
         remote_fname = os.path.basename(remote_fpath)
         if os.path.isdir(local_fpath):
             local_fpath = os.path.join(local_fpath, remote_fname)
-        self.sftp.get(remote_fpath, local_fpath)
+        self._sftp_get(remote_fpath, local_fpath)
         if cleanup:
             self.run_command("rm -f {}".format(remote_fpath))
 
@@ -337,23 +344,23 @@ class SSHConnection(UtilsMixin):
         return line_delimiter.join(out)
 
     def get_login_path(self, *args, **kwargs):
-        self.remote_login_path = self.pwd()
+        self.remote_login_path = self.remote_pwd()
         return self.remote_login_path
 
     def get_login_uname(self, *args, **kwargs):
-        out = self.whoami()
+        out = self.remote_whoami()
         self.remote_user_name = out
         return self.remote_user_name
 
-    def whoami(self, *args, **kwargs):
+    def remote_whoami(self, *args, **kwargs):
         out = self.run_command("whoami")
         return out
 
-    def pwd(self, *args, **kwargs):
+    def remote_pwd(self, *args, **kwargs):
         out = self.run_command("pwd")
         return out
 
-    def ls(self, remote_path="./", line_delimiter=None, **kwargs):
+    def remote_ls(self, remote_path="./", line_delimiter=None, **kwargs):
         """
         run 'ls'
         :param remote_path: ls XXX, default(./)
@@ -365,6 +372,30 @@ class SSHConnection(UtilsMixin):
                                line_delimiter=line_delimiter)
         return out
 
+    def remote_unzip(self, zip_fpath, output_folder=None):
+        if output_folder is None:
+            output_folder = self.remote_pwd()
+        logger.debug("remote unzipping {} to {}".format(zip_fpath, output_folder))
+        self.run_command("unzip -o {} -d {}".format(zip_fpath, output_folder))
+
+    def remote_rm(self, target_path):
+        logger.debug("remote rm: {}".format(target_path))
+        self.run_command("rm -rf {}".format(target_path))
+
+    def remote_zip(self, target_path, output_fpath):
+        logger.debug("remote zip: {} to {}".format(target_path, output_fpath))
+        self.run_command("cd {} && zip -r {} {}".format(os.path.dirname(target_path),
+                                                        output_fpath,
+                                                        os.path.basename(target_path)))
+
+    def _sftp_get(self, remote_fpath, local_fpath):
+        logger.debug("sftp getting {} to {}".format(remote_fpath, local_fpath))
+        self.sftp.get(remote_fpath, local_fpath)
+
+    def _sftp_push(self, local_fpath, remote_fpath):
+        logger.debug("sftp pushing {} to remote @ {}".format(local_fpath, remote_fpath))
+        self.sftp.put(local_fpath, remote_fpath)
+
 
 if __name__ == "__main__":
 
@@ -373,7 +404,7 @@ if __name__ == "__main__":
                             key_path="/Users/zhiyul/Documents/Projects/summa/Jupyter-xsede/cybergis/keeling.key")
     aa = keeling.run_command("cd ~")
 
-    print(keeling.ls())
+    print(keeling.remote_ls())
     pass
 
     sbatch = SummaKeelingSBatchScript(1, 2, "test", "out", "stderr", 'simg_path', "userscript_path")
@@ -381,11 +412,13 @@ if __name__ == "__main__":
     print(sbatch.generate_script("./abc.sh"))
 
     zip = keeling.upload("/Users/zhiyul/Downloads/111abc2", "/tmp", remote_is_folder=True)
-    keeling.ls(remote_path="/tmp")
+    keeling.remote_ls(remote_path="/tmp")
 
     keeling.download("/tmp/111abc2", "/tmp/test", remote_is_folder=True)
 
 
+    j = Job()
+    print(j.random_id(8, prefix="pre_", suffix="_suf"))
 
 
 class KeelingSSHConnection(object):
