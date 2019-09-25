@@ -178,37 +178,49 @@ class SummaKeelingSBatchScript(KeelingSBatchScript):
 class SummaUserScript(AbstractScript):
 
     SUMMA_USER_TEMPLATE = '''
-#!/bin/bash
-SUMMA_EXE=/code/bin/summa.exe
-SUMMA_SETTING=$settingpath
+import pysumma as ps
+import pysumma.hydroshare_utils as utils
+from hs_restclient import HydroShare
+import shutil, os
+import subprocess
+from ipyleaflet import Map, GeoJSON
+import json
 
-if  [ -z ${SUMMA_EXE} ]
-    then
-        echo "Can not find the SUMMA executable SUMMA_EXE"
-        exit 1
-fi
+os.chdir("$local_path")
+instance = '$instance_name'
 
-${SUMMA_EXE} -p never -s $casename -m ${SUMMA_SETTING}'''
+file_manager = os.getcwd() + '/' + instance + '/settings/$file_manager_name'
+executable = "/code/bin/summa.exe"
 
-    settingpath = None
-    casename = None
-    userscript_fname = "runSummaTest.sh"
+S = ps.Simulation(executable, file_manager)
 
-    def __init__(self, settingpath, casename, *args, **kargs):
-        self.settingpath = settingpath
-        self.casename = casename
 
-    def generate_script(self, local_folder_path, *args, **kargs):
+S.run('local', run_suffix='_test')
 
-        uscript = self.SUMMA_USER_TEMPLATE.substitute(
-                settingpath=self.settingpath,
-                casename=self.casename
+'''
+
+    local_path = None
+    instance_name = None
+    file_manager_name = None
+    userscript_name = "run.py"
+
+    def __init__(self, local_path, instance_name, file_manager_name, *args, **kargs):
+        self.local_path=local_path
+        self.instance_name=instance_name
+        self.file_manager_name=file_manager_name
+
+    def generate_script(self, local_folder_path=None, *args, **kargs):
+
+        uscript = Template(self.SUMMA_USER_TEMPLATE).substitute(
+                local_path=self.local_path,
+                instance_name=self.instance_name,
+                file_manager_name=self.file_manager_name
                 )
         logger.debug(uscript)
         if not os.path.exists(local_folder_path) or not os.path.isdir(local_folder_path):
             return uscript
         else:
-            local_path = os.path.join(local_folder_path, self.userscript_fname)
+            local_path = os.path.join(local_folder_path, self.userscript_name)
             with open(local_path, "w") as f:
                 f.write(uscript)
             logging.debug("SummaUserScript saved to {}".format(local_path))

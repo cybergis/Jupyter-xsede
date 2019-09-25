@@ -6,7 +6,7 @@ from .summa import Summa
 from .taudem import TauDEM
 from .htc import SummaHTC, JobsInfo
 from .comm import SSHComm
-from .general import SummaKeelingSBatchScript
+from .general import SummaKeelingSBatchScript, SummaUserScript
 #
 #def main():
 #    """Entry point for the application script"""
