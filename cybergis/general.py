@@ -509,3 +509,15 @@ class KeelingSSHConnection(object):
         self.module_avail = {_: _ for _ in moduleList.replace('(default)', '').split() if _.count('-') < 3}
         self.m = self.module_avail
         self.modules = set()
+
+
+def replaceAll(file_path,remotepath, localpath):
+    with open(file_path, 'r') as file :
+        filedata = file.read()
+    filedata = filedata.replace(remotepath, localpath)
+    with open(file_path, 'w') as file:
+        file.write(filedata)
+
+
+
+
