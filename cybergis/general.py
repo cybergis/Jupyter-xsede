@@ -39,7 +39,13 @@ class Job(object):
     remote_output_path = ""
     local_data_path = ""
     local_output_path = ""
-    ssh_connection = None
+    connection = None
+
+    def __init__(self, name, connection, sbatch_script):
+        self.local_id = self.random_id()
+        assert isinstance(connection, AbstractConnection)
+        self.connection = connection
+        pass
 
     def random_id(self, digit=10, prefix=str(), suffix=str()):
         id = str(uuid.uuid4()).replace("-", "")
@@ -204,27 +210,49 @@ class UtilsMixin(object):
         return zip_fpath
 
 
-class SSHConnection(UtilsMixin):
+class AbstractConnection(object):
+    connection_type = str()
+    server = str()
+
+    def login(self):
+        raise NotImplementedError()
+
+    def logout(self):
+        raise NotImplementedError()
+
+    def upload(self, local_fpath, remote_fpath, *args, **kwargs):
+        raise NotImplementedError()
+
+    def download(self, remote_fpath, local_fpath, *args, **kwargs):
+        raise NotImplementedError()
+
+    def run_command(self, command, *args, **kwargs):
+        raise NotImplementedError()
+
+
+class SSHConnection(UtilsMixin, AbstractConnection):
+    connection_type = "ssh"
     _client = None
     _sftp = None
-    server_url = None
+    server = None
     user_name = None
     user_pw = None
     key_path = None
     remote_user_name = None
-    remote_login_path = None
+    remote_user_home = None
 
-    def __init__(self, server_url, user_name=None, user_pw=None, key_path=None, **kargs):
-        self.server_url = server_url
+    def __init__(self, server, user_name=None, user_pw=None, key_path=None, **kargs):
+        self.server = server
         self._client = paramiko.SSHClient()
         self._client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         self.user_name = user_name
         self.user_pw = user_pw
         self.key_path = key_path
 
-        self._login()
-        self.get_login_path()
-        self.get_login_uname()
+        self.login()
+        self.remote_user_home = self.remote_home_directory()
+        self.remote_user_name = self.remote_whoami()
+
         self._sftp = self.client.open_sftp()
 
     @property
@@ -236,16 +264,16 @@ class SSHConnection(UtilsMixin):
         return self._sftp
 
     def _login_with_password(self, *args, **kwargs):
-        self._client.connect(self.server_url,
+        self._client.connect(self.server,
                              username=self.user_name,
                              password=self.user_pw)
 
     def _login_with_key(self, *args, **kwargs):
-        self._client.connect(self.server_url,
+        self._client.connect(self.server,
                              username=self.user_name,
                              key_filename=self.key_path)
 
-    def _login(self, *args, **kwargs):
+    def login(self, *args, **kwargs):
         if self.key_path is not None:
             self._login_with_key()
         elif self.user_pw is None:
@@ -343,14 +371,9 @@ class SSHConnection(UtilsMixin):
             return out
         return line_delimiter.join(out)
 
-    def get_login_path(self, *args, **kwargs):
-        self.remote_login_path = self.remote_pwd()
-        return self.remote_login_path
-
-    def get_login_uname(self, *args, **kwargs):
-        out = self.remote_whoami()
-        self.remote_user_name = out
-        return self.remote_user_name
+    def remote_home_directory(self):
+        out = self.run_command("echo ~")
+        return out
 
     def remote_whoami(self, *args, **kwargs):
         out = self.run_command("whoami")
