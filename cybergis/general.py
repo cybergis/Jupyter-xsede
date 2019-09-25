@@ -24,6 +24,39 @@ logger.addHandler(streamHandler)
 #     pass
 #
 
+class AbstractConnection(object):
+    connection_type = str()
+    server = str()
+
+    def login(self):
+        raise NotImplementedError()
+
+    def logout(self):
+        raise NotImplementedError()
+
+    def upload(self, local_fpath, remote_fpath, *args, **kwargs):
+        raise NotImplementedError()
+
+    def download(self, remote_fpath, local_fpath, *args, **kwargs):
+        raise NotImplementedError()
+
+    def run_command(self, command, *args, **kwargs):
+        raise NotImplementedError()
+
+
+class AbstractScript(object):
+    def generate_script(self, *args, **kargs):
+        raise NotImplementedError()
+
+
+class SBatchScript(AbstractScript):
+    walltime = int(100)
+    node = int(1)
+    jobname = ""
+    stdout = None  # Path to output
+    stderr = None  # Path to err
+    exec = ""
+
 
 class Job(object):
     backend = ""  # keeling or comet
@@ -40,10 +73,13 @@ class Job(object):
     local_data_path = ""
     local_output_path = ""
     connection = None
+    connection_class = AbstractConnection
+    sbatch_script_class = SBatchScript
 
-    def __init__(self, name, connection, sbatch_script):
+    def __init__(self, backend, jobname, connection, sbatch_script, *args, **kwargs):
         self.local_id = self.random_id()
-        assert isinstance(connection, AbstractConnection)
+        assert isinstance(connection, self.connection_class)
+        assert isinstance(sbatch_script, self.sbatch_script_class)
         self.connection = connection
         pass
 
@@ -76,23 +112,22 @@ class Job(object):
 
 
 class SummaJob(Job):
+    JOBNAME="SUMMA"
+    job_root_folder = ""
+
+    def __init__(self, backend, local_id, connection, sbatch_script, *args, **kwargs):
+        super().__init__(backend, self.JOBNAME, connection, sbatch_script, *args, **kwargs)
+        self.local_id = self.random_id(prefix=self.local_id + "_")
 
 
-    pass
+class SummaKeelingJob(SummaJob):
+
+    def __init__(self, local_id, connection, sbatch_script, *args, **kwargs):
+        super().__init__("keeling", connection, sbatch_script, *args, **kwargs)
+
+        pass
 
 
-class AbstractScript(object):
-    def generate_script(self, *args, **kargs):
-        raise NotImplementedError()
-
-
-class SBatchScript(AbstractScript):
-    walltime = int(100)
-    node = int(1)
-    jobname = ""
-    stdout = None  # Path to output
-    stderr = None  # Path to err
-    exec = ""
 
 
 class KeelingSBatchScript(SBatchScript):
@@ -210,24 +245,7 @@ class UtilsMixin(object):
         return zip_fpath
 
 
-class AbstractConnection(object):
-    connection_type = str()
-    server = str()
 
-    def login(self):
-        raise NotImplementedError()
-
-    def logout(self):
-        raise NotImplementedError()
-
-    def upload(self, local_fpath, remote_fpath, *args, **kwargs):
-        raise NotImplementedError()
-
-    def download(self, remote_fpath, local_fpath, *args, **kwargs):
-        raise NotImplementedError()
-
-    def run_command(self, command, *args, **kwargs):
-        raise NotImplementedError()
 
 
 class SSHConnection(UtilsMixin, AbstractConnection):
@@ -280,12 +298,12 @@ class SSHConnection(UtilsMixin, AbstractConnection):
             print("input password for {}".format(self.user_name))
             self.user_pw = getpass()
             self._login_with_password()
-        logger.debug("SSH logged into {}".format(self.server_url))
+        logger.debug("SSH logged into {}".format(self.server))
 
     def logout(self, *args, **kwargs):
         self._client.close()
         self._sftp.close()
-        logger.debug("SSH logged off {}".format(self.server_url))
+        logger.debug("SSH logged off {}".format(self.server))
 
     def upload(self, local_fpath, remote_fpath,
                remote_is_folder=False, unzip=False, *args, **kwargs):
@@ -430,18 +448,15 @@ if __name__ == "__main__":
     print(keeling.remote_ls())
     pass
 
-    sbatch = SummaKeelingSBatchScript(1, 2, "test", "out", "stderr", 'simg_path', "userscript_path")
-    uscript = SummaUserScript('settingpath', 'casename')
-    print(sbatch.generate_script("./abc.sh"))
+    # sbatch = SummaKeelingSBatchScript(1, 2, "test", "out", "stderr", 'simg_path', "userscript_path")
+    # uscript = SummaUserScript('settingpath', 'casename')
+    # print(sbatch.generate_script("./abc.sh"))
+    #
+    # zip = keeling.upload("/Users/zhiyul/Downloads/111abc2", "/tmp", remote_is_folder=True)
+    # keeling.remote_ls(remote_path="/tmp")
+    #
+    # keeling.download("/tmp/111abc2", "/tmp/test", remote_is_folder=True)
 
-    zip = keeling.upload("/Users/zhiyul/Downloads/111abc2", "/tmp", remote_is_folder=True)
-    keeling.remote_ls(remote_path="/tmp")
-
-    keeling.download("/tmp/111abc2", "/tmp/test", remote_is_folder=True)
-
-
-    j = Job()
-    print(j.random_id(8, prefix="pre_", suffix="_suf"))
 
 
 class KeelingSSHConnection(object):
