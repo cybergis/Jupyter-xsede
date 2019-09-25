@@ -23,6 +23,76 @@ logger.addHandler(streamHandler)
 #     # threading to manage multiple jobs
 #     pass
 #
+class UtilsMixin(object):
+
+    def remove_newlines(self, in_str):
+        out_str = in_str.replace("\r", "").replace("\n", "")
+        return out_str
+
+    def zip_local_folder(self, local_dir, output_dir=None):
+        """
+        Zip up a local folder /A/B/C, output zip filename: C.zip
+        :param local_dir: Path to a local folder: /A/B/C
+        :param output_dir: where to put C.zip in; default(None): put C.zip in a random temp folder
+        :return: full path to output zip file C.zip
+        """
+        if not os.path.isdir(local_dir):
+            raise Exception("Not a folder: {}".format(local_dir))
+        folder_name = os.path.basename(local_dir)
+        parent_path = os.path.dirname(local_dir)
+        if output_dir is None:
+            output_fprefix = os.path.join(tempfile.mkdtemp(), folder_name)
+        else:
+            output_fprefix = os.path.join(output_dir, folder_name)
+        shutil.make_archive(output_fprefix, "zip", parent_path, folder_name)
+        zip_fpath = output_fprefix + ".zip"
+        logger.debug("Zipping folder {} to {}".format(local_dir, zip_fpath))
+        return zip_fpath
+
+    def create_local_folder(self, folder_path):
+
+        logger.debug("Creating local folder: {}".format(folder_path))
+        os.makedirs(folder_path, exist_ok=True)
+        return folder_path
+
+    def copy_local(self, source, target):
+        """
+        file --> file
+        file --> target/file
+        folder --> target/folder
+        :param source:
+        :param target:
+        :return:
+        """
+        if not os.path.exists(source):
+            raise Exception("Source does not exist")
+        source_is_folder = os.path.isdir(source)
+        target_exists = os.path.exists(target)
+        target_is_file = os.path.isfile(target)
+
+        if source_is_folder:
+            if target_exists:
+                source_folder_name = os.path.basename(source)
+                target = os.path.join(target, source_folder_name)
+            shutil.copytree(source, target)
+        else:  # source is file
+            if target_is_file:
+                raise Exception("Target file exists")
+            shutil.copy(source, target)
+
+        logger.debug("Local copying {} to {}".format(source, target))
+
+    def move_local(self, source, target):
+        """
+        file --> file
+        file --> target/file
+        folder --> target/folder
+        :param source:
+        :param target:
+        :return:
+        """
+        logger.debug("Local moving {} to {}".format(source, target))
+        shutil.move(source, target)
 
 class AbstractConnection(object):
     connection_type = str()
@@ -58,30 +128,58 @@ class SBatchScript(AbstractScript):
     exec = ""
 
 
-class Job(object):
+class Job(UtilsMixin):
+    JOB_ID_PREFIX = "CyberGIS_"
     backend = ""  # keeling or comet
-    name = ""
     local_id = ""
     remote_id = ""
     state = ""
 
-    sbatch_script = ""
-    user_script = ""
+    local_workspace_path = ""
+    local_job_folder_path = ""
+    local_output_folder_name = ""
 
-    remote_data_path = ""
-    remote_output_path = ""
-    local_data_path = ""
-    local_output_path = ""
+    remote_workspace_path = ""
+    remote_job_folder_name = ""
+    remote_output_folder_name = ""
+
+    sbatch_script = None
+    user_script = None
     connection = None
     connection_class = AbstractConnection
     sbatch_script_class = SBatchScript
+    user_script_class = AbstractScript
 
-    def __init__(self, backend, jobname, connection, sbatch_script, *args, **kwargs):
-        self.local_id = self.random_id()
+    def __init__(self, local_workspace_path, connection,
+                 sbatch_script, user_script, local_id=None,
+                 name=None, description=None,
+                 *args, **kwargs):
+
+        if not os.path.isdir(local_workspace_path):
+            raise Exception("Local workspace folder does not exist")
+
+        if local_id is None:
+            local_id = self.random_id(prefix=self.JOB_ID_PREFIX)
+        self.local_id = local_id
+
         assert isinstance(connection, self.connection_class)
         assert isinstance(sbatch_script, self.sbatch_script_class)
+        assert isinstance(user_script, AbstractScript)
         self.connection = connection
-        pass
+        self.sbatch_script = sbatch_script
+        self.user_script = user_script
+
+        self.name = name if name is not None else local_id
+        self.description = description
+
+        self._create_local_job_folder()
+
+    def _create_local_job_folder(self):
+        local_job_folder_path = os.path.join(self.local_workspace_path,
+                                             self.local_id)
+        self.create_local_folder(local_job_folder_path)
+        self.local_job_folder_path = local_job_folder_path
+        return local_job_folder_path
 
     def random_id(self, digit=10, prefix=str(), suffix=str()):
         id = str(uuid.uuid4()).replace("-", "")
@@ -110,22 +208,6 @@ class Job(object):
         # download job from HPC to local
         self.ssh_connection.download(self.remote_output_path, self.local_output_path)
 
-
-class SummaJob(Job):
-    JOBNAME="SUMMA"
-    job_root_folder = ""
-
-    def __init__(self, backend, local_id, connection, sbatch_script, *args, **kwargs):
-        super().__init__(backend, self.JOBNAME, connection, sbatch_script, *args, **kwargs)
-        self.local_id = self.random_id(prefix=self.local_id + "_")
-
-
-class SummaKeelingJob(SummaJob):
-
-    def __init__(self, local_id, connection, sbatch_script, *args, **kwargs):
-        super().__init__("keeling", connection, sbatch_script, *args, **kwargs)
-
-        pass
 
 
 
@@ -224,35 +306,6 @@ S.run('local', run_suffix='_test')
             with open(local_path, "w") as f:
                 f.write(uscript)
             logging.debug("SummaUserScript saved to {}".format(local_path))
-
-
-class UtilsMixin(object):
-
-    def remove_newlines(self, in_str):
-        out_str = in_str.replace("\r", "").replace("\n", "")
-        return out_str
-
-    def zip_local_folder(self, local_dir, output_dir=None):
-        """
-        Zip up a local folder /A/B/C, output zip filename: C.zip
-        :param local_dir: Path to a local folder: /A/B/C
-        :param output_dir: where to put C.zip in; default(None): put C.zip in a random temp folder
-        :return: full path to output zip file C.zip
-        """
-        if not os.path.isdir(local_dir):
-            raise Exception("Not a folder: {}".format(local_dir))
-        folder_name = os.path.basename(local_dir)
-        parent_path = os.path.dirname(local_dir)
-        if output_dir is None:
-            output_fprefix = os.path.join(tempfile.mkdtemp(), folder_name)
-        else:
-            output_fprefix = os.path.join(output_dir, folder_name)
-        shutil.make_archive(output_fprefix, "zip", parent_path, folder_name)
-        zip_fpath = output_fprefix + ".zip"
-        logger.debug("Zipping folder {} to {}".format(local_dir, zip_fpath))
-        return zip_fpath
-
-
 
 
 
@@ -445,17 +498,48 @@ class SSHConnection(UtilsMixin, AbstractConnection):
         logger.debug("sftp pushing {} to remote @ {}".format(local_fpath, remote_fpath))
         self.sftp.put(local_fpath, remote_fpath)
 
+class KeelingJob(Job):
+
+    JOB_ID_PREFIX = "Keeling_"
+    backend = "keeling"
+    connection_class = SSHConnection
+    sbatch_script_class = KeelingSBatchScript
+
+
+class SummaKeelingJob(KeelingJob):
+
+    JOB_ID_PREFIX = "Summa_"
+    sbatch_script_class = SummaKeelingSBatchScript
+    user_script_class = SummaUserScript
+
+    def __init__(self, connection, sbatch_script, user_script, local_id=None, *args, **kwargs):
+
+        if local_id is None:
+            local_id = self.random_id(prefix=self.JOB_ID_PREFIX)
+
+        super().__init__(connection, sbatch_script, user_script, local_id=local_id, *args, **kwargs)
+
+
 
 if __name__ == "__main__":
 
-    keeling = SSHConnection("keeling.earth.illinois.edu",
+    u=UtilsMixin()
+    u.copy_local("/Users/zhiyul/Downloads/111abc2", "/tmp")
+    u.move_local("/tmp/111abc2", "/tmp/222abc")
+
+    keeling_con = SSHConnection("keeling.earth.illinois.edu",
                             user_name="cigi-gisolve",
                             key_path="/Users/zhiyul/Documents/Projects/summa/Jupyter-xsede/cybergis/keeling.key")
-    aa = keeling.run_command("cd ~")
+    aa = keeling_con.run_command("cd ~")
 
-    print(keeling.remote_ls())
+    print(keeling_con.remote_ls())
     pass
+    sbatch = SummaKeelingSBatchScript(1, 2, "test", "out", "stderr", 'simg_path', "userscript_path")
+    uscript = SummaUserScript('settingpath', 'casename')
 
+    sjob = SummaKeelingJob(keeling_con, sbatch, uscript, job_name="123")
+    a= 1
+    pass
     # sbatch = SummaKeelingSBatchScript(1, 2, "test", "out", "stderr", 'simg_path', "userscript_path")
     # uscript = SummaUserScript('settingpath', 'casename')
     # print(sbatch.generate_script("./abc.sh"))
