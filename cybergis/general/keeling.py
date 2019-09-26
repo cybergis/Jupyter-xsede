@@ -1,6 +1,6 @@
 
 from .base import SBatchScript
-from .job import Job
+from .job import SlurmJob
 from .connection import SSHConnection
 from string import Template
 import logging
@@ -11,29 +11,29 @@ logger = logging.getLogger("cybergis")
 
 class KeelingSBatchScript(SBatchScript):
 
-    KEELING_SBATCH_TEMPLATE = '''
+    SCRIPT_TEMPLATE = '''
 #!/bin/bash
 #SBATCH --job-name=$jobname
-#SBATCH --nodes=$n_nodes
+#SBATCH --nodes=$nodes
 #SBATCH -t $walltime
 
-$exe'''
+$exec'''
 
-    def __init__(self, walltime, node, jobname, exec, *args, **kargs):
+    def __init__(self, walltime, nodes, jobname, exec, *args, **kargs):
         self.walltime = walltime
-        self.node = node
+        self.nodes = nodes
         self.jobname = jobname
         self.exec = exec
 
     def parameter_dict(self):
         return dict(jobname=self.jobname,
-                    n_nodes=self.node,
+                    nodes=self.nodes,
                     walltime=self.walltime,
                     exec=self.exec
                     )
 
 
-class KeelingJob(Job):
+class KeelingJob(SlurmJob):
 
     JOB_ID_PREFIX = "Keeling_"
     backend = "keeling"

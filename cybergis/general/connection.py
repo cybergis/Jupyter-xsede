@@ -1,6 +1,6 @@
 
 from .utils import UtilsMixin
-from .base import AbstractConnection
+from .base import BaseConnection
 import paramiko
 import logging
 from getpass import getpass
@@ -10,7 +10,7 @@ import zipfile
 logger = logging.getLogger("cybergis")
 
 
-class SSHConnection(UtilsMixin, AbstractConnection):
+class SSHConnection(UtilsMixin, BaseConnection):
     connection_type = "ssh"
     _client = None
     _sftp = None
@@ -20,6 +20,7 @@ class SSHConnection(UtilsMixin, AbstractConnection):
     key_path = None
     remote_user_name = None
     remote_user_home = None
+    _logged_in = False
 
     def __init__(self, server, user_name=None, user_pw=None, key_path=None, **kargs):
         self.server = server
@@ -28,6 +29,10 @@ class SSHConnection(UtilsMixin, AbstractConnection):
         self.user_name = user_name
         self.user_pw = user_pw
         self.key_path = key_path
+
+    @property
+    def logged_in(self):
+        return self._logged_in
 
     @property
     def client(self):
@@ -48,23 +53,28 @@ class SSHConnection(UtilsMixin, AbstractConnection):
                              key_filename=self.key_path)
 
     def login(self, *args, **kwargs):
-        if self.key_path is not None:
-            self._login_with_key()
-        elif self.user_pw is None:
-            print("input password for {}".format(self.user_name))
-            self.user_pw = getpass()
-            self._login_with_password()
-        logger.debug("SSH logged into {}".format(self.server))
+        if not self.logged_in:
+            if self.key_path is not None:
+                self._login_with_key()
+            elif self.user_pw is None:
+                print("input password for {}".format(self.user_name))
+                self.user_pw = getpass()
+                self._login_with_password()
 
-        self.remote_user_home = self.remote_home_directory()
-        self.remote_user_name = self.remote_whoami()
+            self.remote_user_home = self.remote_home_directory()
+            self.remote_user_name = self.remote_whoami()
 
-        self._sftp = self.client.open_sftp()
+            self._sftp = self.client.open_sftp()
+            self._logged_in = True
+        logger.debug("SSH logged into {} as user {}".format(self.server,
+                                                            self.remote_user_name))
 
     def logout(self, *args, **kwargs):
-        self._client.close()
         self._sftp.close()
-        logger.debug("SSH logged off {}".format(self.server))
+        self._client.close()
+        logger.debug("SSH logged off {} as user {}".format(self.server,
+                                                           self.remote_user_name))
+        self._logged_in = False
 
     def upload(self, local_fpath, remote_fpath,
                remote_is_folder=False, unzip=False, *args, **kwargs):

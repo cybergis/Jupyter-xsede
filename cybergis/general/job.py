@@ -1,4 +1,4 @@
-from .base import AbstractScript, SBatchScript, AbstractConnection
+from .base import BaseScript, SBatchScript, BaseConnection, BaseJob
 from .utils import UtilsMixin
 import logging
 import uuid
@@ -7,7 +7,7 @@ import os
 logger = logging.getLogger("cybergis")
 
 
-class Job(UtilsMixin):
+class SlurmJob(UtilsMixin, BaseJob):
     # This is a Slurm Job
 
     JOB_ID_PREFIX = "CyberGIS_"
@@ -29,9 +29,9 @@ class Job(UtilsMixin):
     sbatch_script = None
     user_script = None
     connection = None
-    connection_class = AbstractConnection
+    connection_class = BaseConnection
     sbatch_script_class = SBatchScript
-    user_script_class = AbstractScript
+    user_script_class = BaseScript
 
     def __init__(self, local_workspace_path, connection,
                  sbatch_script, user_script, local_id=None,
@@ -48,7 +48,7 @@ class Job(UtilsMixin):
 
         assert isinstance(connection, self.connection_class)
         assert isinstance(sbatch_script, self.sbatch_script_class)
-        assert isinstance(user_script, AbstractScript)
+        assert isinstance(user_script, BaseScript)
         self.connection = connection
         self.sbatch_script = sbatch_script
         self.user_script = user_script
