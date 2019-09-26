@@ -1,10 +1,13 @@
 
-from .base import SBatchScript, Job
+from .base import SBatchScript
+from .job import Job
 from .connection import SSHConnection
 from string import Template
 import logging
+import os
 
 logger = logging.getLogger("cybergis")
+
 
 class KeelingSBatchScript(SBatchScript):
 
@@ -22,21 +25,12 @@ $exe'''
         self.jobname = jobname
         self.exec = exec
 
-    def generate_script(self, local_path=None):
-        sbscript = Template(self.KEELING_SBATCH_TEMPLATE).substitute(
-            jobname=self.jobname,
-            n_nodes=self. node,
-            walltime=self.walltime,
-            exe=self.exec
-            )
-        logger.debug(sbscript)
-        if local_path is None:
-            return sbscript
-        else:
-            local_path=local_path+"/sbatch.sh"
-            with open(local_path, 'w') as f:
-                f.write(sbscript)
-            logger.debug("KeelingSBatchScript saved to {}".format(local_path))
+    def parameter_dict(self):
+        return dict(jobname=self.jobname,
+                    n_nodes=self.node,
+                    walltime=self.walltime,
+                    exec=self.exec
+                    )
 
 
 class KeelingJob(Job):
@@ -45,3 +39,12 @@ class KeelingJob(Job):
     backend = "keeling"
     connection_class = SSHConnection
     sbatch_script_class = KeelingSBatchScript
+
+    def prepare(self):
+        raise NotImplementedError()
+
+    def _save_remote_id(self, in_msg):
+        if 'ERROR' in in_msg or 'WARN' in in_msg:
+            logger.error('Submit job {} error: {}'.format(self.local_id, in_msg))
+        self.remote_id = in_msg
+

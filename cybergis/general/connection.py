@@ -29,12 +29,6 @@ class SSHConnection(UtilsMixin, AbstractConnection):
         self.user_pw = user_pw
         self.key_path = key_path
 
-        self.login()
-        self.remote_user_home = self.remote_home_directory()
-        self.remote_user_name = self.remote_whoami()
-
-        self._sftp = self.client.open_sftp()
-
     @property
     def client(self):
         return self._client
@@ -62,6 +56,11 @@ class SSHConnection(UtilsMixin, AbstractConnection):
             self._login_with_password()
         logger.debug("SSH logged into {}".format(self.server))
 
+        self.remote_user_home = self.remote_home_directory()
+        self.remote_user_name = self.remote_whoami()
+
+        self._sftp = self.client.open_sftp()
+
     def logout(self, *args, **kwargs):
         self._client.close()
         self._sftp.close()
@@ -73,7 +72,7 @@ class SSHConnection(UtilsMixin, AbstractConnection):
         Upload a file or a folder to remote
         local file --> remote file
         local file --> remote folder
-        local folder --> remote folder (zip and unzip)
+        local folder --> remote_fpath/folder (zip and unzip)
         :param local_fpath: full path to local file or folder
         :param remote_fpath: full path to remote file or folder
         :param remote_is_folder: whether remote_is_folder is a folder path
