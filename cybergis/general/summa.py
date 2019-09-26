@@ -8,6 +8,7 @@ logger = logging.getLogger("cybergis")
 
 
 class SummaKeelingSBatchScript(KeelingSBatchScript):
+
     name = "SummaKeelingSBatchScript"
     SCRIPT_TEMPLATE = '''
     #!/bin/bash
@@ -15,26 +16,25 @@ class SummaKeelingSBatchScript(KeelingSBatchScript):
     #SBATCH --nodes=$nodes
     #SBATCH -t $walltime
 
-    $exe singularity exec $simg_path $userscript_path'''
+    sbatch singularity exec $simg_path $userscript_path'''
 
     simg_path = "/data/keeling/a/zhiyul/images/pysumma_ensemble.img"
     userscript_path = None
 
     def __init__(self, walltime, nodes, jobname, userscript_path, *args, **kargs):
-        userscript_path = userscript_path + "/run.py"
-        _exec = Template(self.EXEC).substitute(simg="/data/keeling/a/zhiyul/images/pysumma_ensemble.img",
-                                               userscript=userscript_path)
-        super().__init__(walltime, nodes, jobname, _exec, *args, **kargs)
+        self.userscript_path = userscript_path
+        super().__init__(walltime, nodes, jobname, None, *args, **kargs)
 
     def parameter_dict(self):
-        return dict(
-
-        )
+        d = super().parameter_dict()
+        d["simg_path"] = self.simg_path
+        d["userscript_path"] = self.userscript_path
+        return d
 
 
 class SummaUserScript(BaseScript):
     name = "SummaUserScript"
-    SUMMA_USER_TEMPLATE = '''
+    SCRIPT_TEMPLATE = '''
 import pysumma as ps
 import pysumma.hydroshare_utils as utils
 from hs_restclient import HydroShare
@@ -47,7 +47,7 @@ os.chdir("$local_path")
 instance = '$instance_name'
 
 file_manager = os.getcwd() + '/' + instance + '/settings/$file_manager_name'
-executable = "/code/bin/summa.exe"
+exeutable = "/code/bin/summa.exe"
 
 S = ps.Simulation(executable, file_manager)
 
@@ -66,6 +66,13 @@ S.run('local', run_suffix='_test')
         self.instance_name = instance_name
         self.file_manager_name = file_manager_name
 
+    def parameter_dict(self, *args, **kwargs):
+
+        return dict(local_path=self.local_path,
+                    instance_name=self.instance_name,
+                    file_manager_name=self.file_manager_name
+            )
+
 
 
 class SummaKeelingJob(KeelingJob):
@@ -75,14 +82,14 @@ class SummaKeelingJob(KeelingJob):
     user_script_class = SummaUserScript
 
     def __init__(self, local_workspace_path, connection, sbatch_script,
-                 user_script, local_id=None,
+                 local_id=None,
                  model_source_folder_path="", move_source=False,
                  *args, **kwargs):
 
         if local_id is None:
             local_id = self.random_id(prefix=self.JOB_ID_PREFIX)
 
-        super().__init__(local_workspace_path, connection, sbatch_script, user_script, local_id=local_id, *args, **kwargs)
+        super().__init__(local_workspace_path, connection, sbatch_script, local_id=local_id, *args, **kwargs)
         self.model_source_folder_path = model_source_folder_path
         self.move_source = move_source
 
@@ -96,10 +103,7 @@ class SummaKeelingJob(KeelingJob):
             self.copy_local(self.model_source_folder_path,
                             self.local_job_folder_path)
         # save SBatch script
-        self.sbatch_script.generate_script(local_path=self.local_job_folder_path)
-
-        # save User script
-        self.user_script.generate_script(local_path=self.local_job_folder_path)
+        self.sbatch_script.generate_script(local_folder_path=self.local_job_folder_path)
 
         # connection login remote
         self.connection.login()

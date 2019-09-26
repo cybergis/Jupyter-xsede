@@ -14,20 +14,22 @@ class KeelingSBatchScript(SBatchScript):
 #SBATCH --nodes=$nodes
 #SBATCH -t $walltime
 
-$exec'''
+$exe'''
 
-    def __init__(self, walltime, nodes, jobname, exec, *args, **kargs):
+    def __init__(self, walltime, nodes, jobname, exe, *args, **kargs):
         self.walltime = walltime
         self.nodes = nodes
         self.jobname = jobname
-        self.exec = exec
+        self.exe = exe
 
     def parameter_dict(self):
-        return dict(jobname=self.jobname,
+        d = dict(jobname=self.jobname,
                     nodes=self.nodes,
                     walltime=self.walltime,
-                    exec=self.exec
                     )
+        if self.exe is not None:
+            d["exe"] = self.exe
+        return d
 
 
 class KeelingJob(SlurmJob):

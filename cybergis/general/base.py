@@ -70,10 +70,10 @@ class BaseScript(object):
         logger.debug(script)
         if os.path.isdir(local_folder_path):
             self._local_path = os.path.join(local_folder_path, self.file_name)
-            with open(self.local_path, 'w') as f:
+            with open(self._local_path, 'w') as f:
                 f.write(script)
             logger.debug("{} saved to {}".format(self.name, self.local_path))
-            return self.local_path
+            return self._local_path
         else:
             return script
 
@@ -91,20 +91,20 @@ class SBatchScript(BaseScript):
     #SBATCH --nodes=$nodes
     #SBATCH -t $walltime
 
-    $exec'''
+    sbatch $exe'''
 
     walltime = int(100)
     nodes = int(1)
     jobname = ""
     stdout = None  # Path to output
     stderr = None  # Path to err
-    exec = ""
+    exe = ""
 
-    def __init__(self, walltime, nodes, jobname, exec, stdout=None, stderr=None, file_name=None):
+    def __init__(self, walltime, nodes, jobname, exe, stdout=None, stderr=None, file_name=None):
         self.walltime = walltime
         self.nodes = nodes
         self.jobname = jobname
-        self.exec = exec
+        self.exe = exe
         self.stdout = stdout
         self.stderr = stderr
         self.file_name = file_name
@@ -113,7 +113,7 @@ class SBatchScript(BaseScript):
         return dict(walltime=self.walltime,
                     jobname=self.jobname,
                     nodes=self.nodes,
-                    exec=self.exec)
+                    exe=self.exe)
 
 
 

@@ -31,10 +31,9 @@ class SlurmJob(UtilsMixin, BaseJob):
     connection = None
     connection_class = BaseConnection
     sbatch_script_class = SBatchScript
-    user_script_class = BaseScript
 
     def __init__(self, local_workspace_path, connection,
-                 sbatch_script, user_script, local_id=None,
+                 sbatch_script, local_id=None,
                  name=None, description=None,
                  *args, **kwargs):
 
@@ -48,10 +47,9 @@ class SlurmJob(UtilsMixin, BaseJob):
 
         assert isinstance(connection, self.connection_class)
         assert isinstance(sbatch_script, self.sbatch_script_class)
-        assert isinstance(user_script, BaseScript)
+
         self.connection = connection
         self.sbatch_script = sbatch_script
-        self.user_script = user_script
 
         self.name = name if name is not None else local_id
         self.description = description
