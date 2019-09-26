@@ -1,8 +1,8 @@
-from .base import BaseScript, SBatchScript, BaseConnection, BaseJob
-from .utils import UtilsMixin
 import logging
 import uuid
 import os
+from .base import BaseScript, SBatchScript, BaseConnection, BaseJob
+from .utils import UtilsMixin
 
 logger = logging.getLogger("cybergis")
 

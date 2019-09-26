@@ -1,10 +1,7 @@
-
 from .base import SBatchScript
 from .job import SlurmJob
 from .connection import SSHConnection
-from string import Template
 import logging
-import os
 
 logger = logging.getLogger("cybergis")
 
