@@ -1,10 +1,7 @@
-from general import *
-# from general.summa import *
-# from general.keeling import *
-# from general.connection import *
-# from general.base import *
-
 import logging
+import os
+from general import *
+
 
 logger = logging.getLogger("cybergis")
 logger.setLevel("DEBUG")
@@ -13,25 +10,24 @@ formatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-
 streamHandler.setFormatter(formatter)
 logger.addHandler(streamHandler)
 
-if __name__ == "__main__":
 
-    summa_uscript = SummaUserScript("local_path1111", "instance_name2222", 'file_manager_name3333')
+if __name__ == "__main__":
 
     walltime = 1000
     nodes = 1
     jobname = "testjob"
-    summa_sbatch = SummaKeelingSBatchScript(walltime, nodes, jobname, summa_uscript)
-
-    out = summa_sbatch.generate_script(local_folder_path="/tmp")
-
+    summa_sbatch = SummaKeelingSBatchScript(walltime, nodes, jobname)
 
     keeling_con = SSHConnection("keeling.earth.illinois.edu",
                             user_name="cigi-gisolve",
                             key_path="/Users/zhiyul/Documents/Projects/summa/keeling.key")
 
-
+    model_source_folder_path = "/Users/zhiyul/Documents/Projects/summa/Jupyter-xsede/SummaModel_ReynoldsAspenStand_StomatalResistance_sopron"
+    file_manager_path = os.path.join(model_source_folder_path, "settings/summa_fileManager_riparianAspenSimpleResistance.txt")
 
     sjob = SummaKeelingJob("/tmp", keeling_con, summa_sbatch,
-                           name="my_summa_testcase",
-                           model_source_folder_path="/Users/zhiyul/Documents/Projects/summa/my_summa_testcast")
+                           model_source_folder_path, file_manager_path,
+                           name="my_summa_testcase")
     sjob.prepare()
+
+    a = 1

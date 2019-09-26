@@ -29,30 +29,18 @@ class BaseScript(object):
     name = "BaseScript"
     file_name = "script.sh"
     _local_path = ""
+    remote_folder_path = ""
     SCRIPT_TEMPLATE = str()
 
     @property
     def local_path(self):
         return self._local_path
 
+    def remote_folder_name(self):
+        return os.path.basename(self.remote_folder_path)
+
     def parameter_dict(self, *args, **kwargs):
-        raise NotImplementedError()
-
-        return dict()
-
-    def generate_script_old(self, local_folder_path=None):
-        script = Template(self.SCRIPT_TEMPLATE).substitute(
-            **self.parameter_dict()
-        )
-        logger.debug(script)
-        if os.path.isdir(local_folder_path):
-            self.local_path = os.path.join(local_folder_path, self.file_name)
-            with open(self.local_path, 'w') as f:
-                f.write(script)
-            logger.debug("{} saved to {}".format(self.name, self.local_path))
-            return self.local_path
-        else:
-            return script
+        return self.__dict__
 
     def generate_script(self, local_folder_path=None, parameter_dict=None):
         local_folder_path = str(local_folder_path)
@@ -72,6 +60,7 @@ class BaseScript(object):
             self._local_path = os.path.join(local_folder_path, self.file_name)
             with open(self._local_path, 'w') as f:
                 f.write(script)
+            os.chmod(self._local_path, 0o775)
             logger.debug("{} saved to {}".format(self.name, self.local_path))
             return self._local_path
         else:
@@ -85,13 +74,14 @@ class BaseJob(object):
 class SBatchScript(BaseScript):
     name = "SBatchScript"
     file_name = "sbatch.sh"
-    SCRIPT_TEMPLATE = '''
-    #!/bin/bash
-    #SBATCH --job-name=$jobname
-    #SBATCH --nodes=$nodes
-    #SBATCH -t $walltime
 
-    sbatch $exe'''
+    SCRIPT_TEMPLATE = \
+'''#!/bin/bash
+#SBATCH --job-name=$jobname
+#SBATCH --nodes=$nodes
+#SBATCH --time=$walltime
+
+sbatch $exe'''
 
     walltime = int(100)
     nodes = int(1)
@@ -100,21 +90,10 @@ class SBatchScript(BaseScript):
     stderr = None  # Path to err
     exe = ""
 
-    def __init__(self, walltime, nodes, jobname, exe, stdout=None, stderr=None, file_name=None):
+    def __init__(self, walltime, nodes, jobname, exe, stdout=None, stderr=None):
         self.walltime = walltime
         self.nodes = nodes
         self.jobname = jobname
         self.exe = exe
         self.stdout = stdout
         self.stderr = stderr
-        self.file_name = file_name
-
-    def parameter_dict(self, *args, **kwargs):
-        return dict(walltime=self.walltime,
-                    jobname=self.jobname,
-                    nodes=self.nodes,
-                    exe=self.exe)
-
-
-
-

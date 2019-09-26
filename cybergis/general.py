@@ -595,12 +595,14 @@ class KeelingSSHConnection(object):
         self.modules = set()
 
 
-def replaceAll(file_path,remotepath, localpath):
-    with open(file_path, 'r') as file :
-        filedata = file.read()
-    filedata = filedata.replace(remotepath, localpath)
-    with open(file_path, 'w') as file:
+def replace_text_in_file(local_file_path, replacement_list):
+    with open(local_file_path, 'r') as f:
+        filedata = f.read()
+    for pair in replacement_list:
+        filedata = filedata.replace(pair[0], pair[1])
+    with open(local_file_path, 'w') as file:
         file.write(filedata)
+    logger.debug("New file saved to {}".format(local_file_path))
 
 
 

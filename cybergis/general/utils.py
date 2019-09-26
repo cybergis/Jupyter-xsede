@@ -76,3 +76,15 @@ class UtilsMixin(object):
         """
         logger.debug("Local moving {} to {}".format(source, target))
         shutil.move(source, target)
+
+    def replace_text_in_file(self, local_source_file_path, replacement_list, local_new_file_path=None):
+
+        with open(local_source_file_path, 'r') as f:
+            filedata = f.read()
+        for pair in replacement_list:
+            filedata = filedata.replace(pair[0], pair[1])
+        if local_new_file_path is None:
+            local_new_file_path = local_source_file_path
+        with open(local_new_file_path, 'w') as file:
+            file.write(filedata)
+        logger.debug("New file saved to {}".format(local_new_file_path))

@@ -92,10 +92,10 @@ class SlurmJob(UtilsMixin, BaseJob):
 
     def submit(self):
         # submit job to HPC scheduler
-        cmd = "cd {} && qsub {}".format(self.remote_job_folder_path,
-                                        self.sbatch_script.file_name)
+        cmd = "cd {} && ./{}".format(self.sbatch_script.remote_folder_path,
+                                     self.sbatch_script.file_name)
 
-        out = self.connection.runCommand(cmd)
+        out = self.connection.run_command(cmd)
         self._save_remote_id(out)
 
     def download(self):
