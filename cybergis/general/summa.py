@@ -71,7 +71,7 @@ class SummaKeelingJob(KeelingJob):
     user_script_class = SummaUserScript
 
     def __init__(self, local_workspace_path, connection, sbatch_script,
-                 model_source_folder_path, model_source_file_manager_path,
+                 model_source_folder_path, model_source_file_manager_rel_path,
                  local_id=None,
                  move_source=False,
                  *args, **kwargs):
@@ -80,11 +80,17 @@ class SummaKeelingJob(KeelingJob):
             local_id = self.random_id(prefix=self.JOB_ID_PREFIX)
 
         super().__init__(local_workspace_path, connection, sbatch_script, local_id=local_id, *args, **kwargs)
+
+        # Directory: "/Workspace/Job/Model/"
         self.model_source_folder_path = model_source_folder_path
         self.model_folder_name = os.path.basename(self.model_source_folder_path)
+
+        self.model_source_file_manager_rel_path = model_source_file_manager_rel_path
+        self.model_file_manager_name = os.path.basename(self.model_source_file_manager_rel_path)
+        self.model_source_file_manager_path = os.path.join(model_source_folder_path,
+                                                           self.model_source_file_manager_rel_path)
+
         self.move_source = move_source
-        self.model_source_file_manager_path = model_source_file_manager_path
-        self.summa_file_manager_name = os.path.basename(self.model_source_file_manager_path)
 
     def prepare(self):
         # Directory: "/Workspace/Job/Model/"
@@ -121,7 +127,7 @@ class SummaKeelingJob(KeelingJob):
 
         user_script = SummaUserScript(self.singularity_job_folder_path,
                                       self.model_folder_name,
-                                      self.summa_file_manager_name)
+                                      self.model_file_manager_name)
         self.sbatch_script.userscript_path = user_script
 
         # save SBatch script

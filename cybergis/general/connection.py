@@ -140,7 +140,7 @@ class SSHConnection(UtilsMixin, BaseConnection):
             if cleanup:
                 os.remove(local_fpath)
 
-    def run_command(self, command, line_delimiter='', *args, **kwargs):
+    def run_command(self, command, line_delimiter='', raise_on_error=False, *args, **kwargs):
         logger.debug("run_commnad on remote: " + command)
         try:
             stdin, stdout, stderr = self._client.exec_command(command)
@@ -153,6 +153,8 @@ class SSHConnection(UtilsMixin, BaseConnection):
         logger.debug("err: " + str(err))
         if len(err) > 0:
             logger.warning("run_command {} got error {}".format(command, ';'.join(err)))
+            if raise_on_error:
+                raise Exception(message=';'.join(err))
         if len(out) == 0:
             return None
         if type(line_delimiter) is not str:
