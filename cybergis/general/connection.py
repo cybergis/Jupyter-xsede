@@ -122,7 +122,8 @@ class SSHConnection(UtilsMixin, BaseConnection):
             unzip = True
             cleanup = True
             remote_folder_name = os.path.basename(remote_fpath)
-            remote_zip_fpath = os.path.join("/tmp", remote_folder_name + ".zip")
+            remote_zip_fpath = os.path.join(os.path.dirname(remote_fpath),
+                                            remote_folder_name + ".zip")
             # zip folder up on server for download
             self.remote_zip(remote_fpath, remote_zip_fpath)
             remote_fpath = remote_zip_fpath

@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 from .keeling import KeelingJob, KeelingSBatchScript
 from .base import BaseScript
 
@@ -77,7 +78,8 @@ class SummaKeelingJob(KeelingJob):
                  *args, **kwargs):
 
         if local_id is None:
-            local_id = self.random_id(prefix=self.JOB_ID_PREFIX)
+            t = str(int(time.time()))
+            local_id = self.random_id(prefix=self.JOB_ID_PREFIX + "{}_".format(t))
 
         super().__init__(local_workspace_path, connection, sbatch_script, local_id=local_id, *args, **kwargs)
 
@@ -104,9 +106,8 @@ class SummaKeelingJob(KeelingJob):
                             self.local_job_folder_path)
         self.local_model_folder_path = os.path.join(self.local_job_folder_path,
                                                     self.model_folder_name)
-        self.local_model_file_manager_path = self.model_source_file_manager_path.replace(self.model_source_folder_path,
-                                                                                         self.local_model_folder_path)
-
+        self.local_model_file_manager_path = os.path.join(self.local_model_folder_path,
+                                                          self.model_source_file_manager_rel_path)
         # connection login remote
         self.connection.login()
 
@@ -122,9 +123,6 @@ class SummaKeelingJob(KeelingJob):
         self.remote_model_folder_path = os.path.join(self.remote_job_folder_path,
                                                      self.model_folder_name)
 
-        self.sbatch_script.remote_folder_path = self.remote_model_folder_path
-
-
         user_script = SummaUserScript(self.singularity_job_folder_path,
                                       self.model_folder_name,
                                       self.model_file_manager_name)
@@ -132,6 +130,7 @@ class SummaKeelingJob(KeelingJob):
 
         # save SBatch script
         self.sbatch_script.generate_script(local_folder_path=self.local_model_folder_path)
+        self.sbatch_script.remote_folder_path = self.remote_model_folder_path
 
         # replace local path with remote path
         # sbatch.sh: change userscript path to path in singularity
@@ -145,6 +144,12 @@ class SummaKeelingJob(KeelingJob):
         self.replace_text_in_file(self.local_model_file_manager_path,
                                   [(self.model_source_folder_path, self.singularity_model_folder_path)])
 
-
+    def go(self):
+        self.prepare()
         self.upload()
         self.submit()
+
+    def download(self):
+        self.connection.download(os.path.join(self.remote_model_folder_path, "output"),
+                                 self.local_job_folder_path, remote_is_folder=True)
+        self.connection.download(self.remote_slurm_out_file_path, self.local_job_folder_path)

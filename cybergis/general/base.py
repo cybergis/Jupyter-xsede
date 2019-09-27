@@ -55,7 +55,7 @@ class BaseScript(object):
         script = Template(self.SCRIPT_TEMPLATE).substitute(
             **parameter_dict
         )
-        logger.debug(script)
+        #logger.debug(script)
         if os.path.isdir(local_folder_path):
             self._local_path = os.path.join(local_folder_path, self.file_name)
             with open(self._local_path, 'w') as f:

@@ -1,7 +1,7 @@
 import logging
 import uuid
 import os
-from .base import BaseScript, SBatchScript, BaseConnection, BaseJob
+from .base import SBatchScript, BaseConnection, BaseJob
 from .utils import UtilsMixin
 
 logger = logging.getLogger("cybergis")
@@ -17,14 +17,18 @@ class SlurmJob(UtilsMixin, BaseJob):
     state = ""
 
     local_workspace_path = ""
-    # local_job_folder_name = ""
-    # local_job_folder_path = ""
-    # local_output_folder_name = ""
+    local_job_folder_name = ""
+    local_job_folder_path = ""
+    local_output_folder_name = ""
 
     remote_workspace_path = ""
     remote_job_folder_name = ""
     remote_job_folder_path = ""
     remote_output_folder_name = ""
+
+    remote_run_sbatch_folder_path = ""  # where to execute sbatch.run, this is where slurm-xxxx.out will be
+    slurm_out_file_name = ""
+    remote_slurm_out_file_path = ""
 
     sbatch_script = None
     user_script = None
@@ -68,15 +72,15 @@ class SlurmJob(UtilsMixin, BaseJob):
     def _create_local_job_folder(self):
         return self.create_local_folder(self.local_job_folder_path)
 
-    def random_id(self, digit=10, prefix=str(), suffix=str()):
-        id = str(uuid.uuid4()).replace("-", "")
+    def random_id(self, digit=8, prefix=str(), suffix=str()):
+        local_id = str(uuid.uuid4()).replace("-", "")
         if digit < 8:
             digit = 8
         elif digit > 32:
             digit = 32
-        out = "{pre}{id}{suf}".format(pre=prefix,
-                                      id=id[0:digit],
-                                      suf=suffix)
+        out = "{pre}{local_id}{suf}".format(pre=prefix,
+                                            local_id=local_id[0:digit],
+                                            suf=suffix)
         return out
 
     def upload(self):
@@ -85,23 +89,34 @@ class SlurmJob(UtilsMixin, BaseJob):
                                self.remote_workspace_path,
                                remote_is_folder=True)
 
-    def _save_remote_id(self, in_msg):
+    def _save_remote_id(self, in_msg, *args, **kwargs):
 
         self.remote_id = ""
         raise NotImplementedError()
+        return self.remote_id
+
+    def _save_remote_id(self, msg, *args, **kwargs):
+        if 'ERROR' in msg or 'WARN' in msg:
+            logger.error('Submit job {} error: {}'.format(self.local_id, msg))
+        self.remote_id = msg
+        logger.debug("Job local_id {} remote_id {}".format(self.local_id, self.remote_id))
+        return self.remote_id
 
     def submit(self):
         # submit job to HPC scheduler
-        cmd = "cd {} && ./{}".format(self.sbatch_script.remote_folder_path,
+        self.remote_run_sbatch_folder_path = self.sbatch_script.remote_folder_path
+        cmd = "cd {} && ./{}".format(self.remote_run_sbatch_folder_path,
                                      self.sbatch_script.file_name)
 
         out = self.connection.run_command(cmd)
-        self._save_remote_id(out)
+        remote_id = self._save_remote_id(out)
+        self.slurm_out_file_name = "slurm-{}.out".format(remote_id)
+        self.remote_slurm_out_file_path = os.path.join(self.remote_run_sbatch_folder_path,
+                                                       self.slurm_out_file_name)
 
     def job_status(self):
         # monitor job status
         raise NotImplementedError()
-
 
     def download(self):
         raise NotImplementedError()
@@ -122,11 +137,10 @@ class SlurmJob(UtilsMixin, BaseJob):
         # get current hpc time and job status (remove line 1 and 3)
         remote_id = self.remote_id
         cmd = 'squeue --job {}'.format(remote_id)
-
         try:
             out = self.connection.run_command(cmd,
-                                          line_delimiter=None,
-                                          raise_on_error=True)
+                                              line_delimiter=None,
+                                              raise_on_error=True)
             # out[0].split()
             #   ['JOBID', 'PARTITION', 'NAME', 'USER', 'ST', 'TIME', 'NODES', 'NODELIST(REASON)']
             # out[1].split()
