@@ -1,5 +1,4 @@
 import logging
-import os
 from general import *
 
 
@@ -23,17 +22,29 @@ if __name__ == "__main__":
                             key_path="/Users/zhiyul/Documents/Projects/summa/keeling.key")
 
     model_source_folder_path = "/Users/zhiyul/Documents/Projects/summa/Jupyter-xsede/SummaModel_ReynoldsAspenStand_StomatalResistance_sopron"
-    file_manager_path = os.path.join(model_source_folder_path, "settings/summa_fileManager_riparianAspenSimpleResistance.txt")
+
     file_manger_rel_path = "settings/summa_fileManager_riparianAspenSimpleResistance.txt"
 
-    sjob = SummaKeelingJob("/tmp", keeling_con, summa_sbatch,
-                           model_source_folder_path, file_manager_path,
+    local_workspace_path = "/Users/zhiyul/Documents/Projects/summa/workspace"
+    sjob = SummaKeelingJob(local_workspace_path, keeling_con, summa_sbatch,
+                           model_source_folder_path, file_manger_rel_path,
                            name="my_summa_testcase")
-    sjob.prepare()
+    sjob.go()
 
     import time
     for i in range(100):
         time.sleep(1)
-        print(sjob.job_status())
+        status = sjob.job_status()
+        if status == "ERROR":
+            logger.error("Job status ERROR")
+            break
+        elif status == "C":
+            logger.info("Job completed: {}; {}".format(sjob.local_id, sjob.remote_id))
+            sjob.download()
+            break
+        else:
+            logger.info(status)
 
-    a = 1
+
+
+    logger.debug("Done")

@@ -65,13 +65,13 @@ class SSHConnection(UtilsMixin, BaseConnection):
 
             self._sftp = self.client.open_sftp()
             self._logged_in = True
-        logger.debug("SSH logged into {} as user {}".format(self.server,
+        logger.info("SSH logged into {} as user {}".format(self.server,
                                                             self.remote_user_name))
 
     def logout(self, *args, **kwargs):
         self._sftp.close()
         self._client.close()
-        logger.debug("SSH logged off {} as user {}".format(self.server,
+        logger.info("SSH logged off {} as user {}".format(self.server,
                                                            self.remote_user_name))
         self._logged_in = False
 
@@ -90,6 +90,7 @@ class SSHConnection(UtilsMixin, BaseConnection):
         :param kwargs:
         :return:
         """
+        logger.info("Uploading {} to {}".format(local_fpath, remote_fpath))
         local_fpath = local_fpath.strip()
         remote_fpath = remote_fpath.strip()
         cleanup = False
@@ -111,8 +112,10 @@ class SSHConnection(UtilsMixin, BaseConnection):
             os.remove(local_fpath)
             logger.debug("Removing {}".format(local_fpath))
 
+
     def download(self, remote_fpath, local_fpath,
                  remote_is_folder=False, unzip=False, *args, **kwargs):
+        logger.info("Downloading {} to {}".format(remote_fpath, local_fpath))
         cleanup = False
         remote_fpath = remote_fpath.strip()
         local_fpath = local_fpath.strip()

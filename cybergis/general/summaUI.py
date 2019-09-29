@@ -1,24 +1,17 @@
 import logging
-import os
-from .base import *
-from .connection import *
-from .keeling import *
-from .summa import *
-from .utils import *
-from .job import *
-from .summaUI import *
 import time
+
 from ipywidgets import *
 from IPython.display import display
 from tkinter import Tk, filedialog
 import traitlets
 
+from .connection import SSHConnection
+from .summa import SummaKeelingSBatchScript, SummaKeelingJob
+
+
 logger = logging.getLogger("cybergis")
-logger.setLevel("DEBUG")
-streamHandler = logging.StreamHandler()
-formatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
-streamHandler.setFormatter(formatter)
-logger.addHandler(streamHandler)
+
 
 def Labeled(label, widget):
     width='130px'
