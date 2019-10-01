@@ -15,7 +15,6 @@ class SummaKeelingSBatchScript(KeelingSBatchScript):
 #SBATCH --job-name=$jobname
 #SBATCH --nodes=$nodes
 #SBATCH --time=$walltime
-
 sbatch singularity exec $simg_path python $userscript_path'''
 
     simg_path = "/data/keeling/a/zhiyul/images/pysumma_ensemble.img"
@@ -39,18 +38,12 @@ import shutil, os
 import subprocess
 from ipyleaflet import Map, GeoJSON
 import json
-
 os.chdir("$singularity_job_folder_path")  # /home/USER/Summa_XXXXXXX
 instance = '$model_folder_name' # aspen
-
 file_manager = os.path.join(os.getcwd(), instance, 'settings/$file_manager_name')
 executable = "/code/bin/summa.exe"
-
 S = ps.Simulation(executable, file_manager)
-
-
 S.run('local', run_suffix='_test')
-
 '''
 
     singularity_job_folder_path = None
@@ -70,6 +63,7 @@ class SummaKeelingJob(KeelingJob):
     JOB_ID_PREFIX = "Summa_"
     sbatch_script_class = SummaKeelingSBatchScript
     user_script_class = SummaUserScript
+    localID = None
 
     def __init__(self, local_workspace_path, connection, sbatch_script,
                  model_source_folder_path, model_source_file_manager_rel_path,
@@ -80,6 +74,7 @@ class SummaKeelingJob(KeelingJob):
         if local_id is None:
             t = str(int(time.time()))
             local_id = self.random_id(prefix=self.JOB_ID_PREFIX + "{}_".format(t))
+            self.localID=local_id
 
         super().__init__(local_workspace_path, connection, sbatch_script, local_id=local_id, *args, **kwargs)
 
@@ -94,6 +89,9 @@ class SummaKeelingJob(KeelingJob):
                                                            self.model_source_file_manager_rel_path)
 
         self.move_source = move_source
+
+    def getlocalid(self):
+        return self.localID
 
     def prepare(self):
         # Directory: "/Workspace/Job/Model/"

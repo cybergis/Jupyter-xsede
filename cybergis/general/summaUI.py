@@ -80,6 +80,7 @@ class summaUI():
     node = 1
     keeling_con = None
     workspace_path = None
+    localID = None
     nNodes=IntSlider(
         value=1,
         min=1,
@@ -132,6 +133,7 @@ class summaUI():
 
 
         sjob = SummaKeelingJob(self.workspace_path, self.keeling_con, summa_sbatch, model_source_folder_path, file_manager_path, name=self.jobname)
+        self.localID=sjob.getlocalid()
         sjob.go()
         for i in range(100):
             time.sleep(1)
@@ -175,6 +177,9 @@ class summaUI():
         ])
         display(submitForm)
         self.confirm.on_click(self.submit)
+
+    def getlocalid(self):
+        return self.localID
 
 
 
