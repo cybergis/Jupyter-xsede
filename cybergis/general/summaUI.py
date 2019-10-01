@@ -81,7 +81,7 @@ class summaUI():
     keeling_con = None
     workspace_path = None
     nNodes=IntSlider(
-        value=5,
+        value=1,
         min=1,
         max=10,
         step=1,
@@ -92,9 +92,9 @@ class summaUI():
         slider_color='white'
     )
     walltime=FloatSlider(
-        value=10,
+        value=1,
         min=1.0,
-        max=48.0,
+        max=10.0,
         step=1.0,
         continuous_update=False,
         orientation='horizontal',
@@ -121,8 +121,9 @@ class summaUI():
     def submit(self, b):
         self.node = self.nNodes.value
         self.walltime = self.walltime.value
-        self.file_manager_path=self.filemanager.value
-        self.model_source_folder_path=self.folder.value
+
+        #self.file_manager_path=self.filemanager.value
+        #self.model_source_folder_path=self.folder.value
 
         model_source_folder_path = self.model_source_folder_path
         file_manager_path = self.file_manager_path
