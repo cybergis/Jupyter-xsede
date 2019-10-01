@@ -10,8 +10,8 @@ from .summaUI import *
 import time
 from ipywidgets import *
 from IPython.display import display
-#from tkinter import Tk, filedialog
-#import traitlets
+from tkinter import Tk, filedialog
+import traitlets
 
 logger = logging.getLogger("cybergis")
 
