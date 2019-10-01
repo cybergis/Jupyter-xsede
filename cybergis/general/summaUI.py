@@ -137,7 +137,7 @@ class summaUI():
         sjob = SummaKeelingJob(self.workspace_path, self.keeling_con, summa_sbatch, model_source_folder_path, file_manager_path, name=self.jobname)
         sjob.go()
         self.job_local_id = sjob.local_id
-        self.job_remote_id = sjob.job_remote_id
+        self.job_remote_id = sjob.remote_id
         for i in range(600):
             time.sleep(1)
             status = sjob.job_status()
