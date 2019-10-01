@@ -41,6 +41,8 @@ class SlurmJob(UtilsMixin, BaseJob):
                  name=None, description=None,
                  *args, **kwargs):
 
+        local_workspace_path = self._check_abs_path(local_workspace_path)
+
         if not os.path.isdir(local_workspace_path):
             raise Exception("Local workspace folder does not exist")
         self.local_workspace_path = local_workspace_path
@@ -104,7 +106,9 @@ class SlurmJob(UtilsMixin, BaseJob):
 
     def submit(self):
         # submit job to HPC scheduler
+
         self.remote_run_sbatch_folder_path = self.sbatch_script.remote_folder_path
+        logger.info("Submitting Job {} to queue".format(self.sbatch_script.file_name))
         cmd = "cd {} && ./{}".format(self.remote_run_sbatch_folder_path,
                                      self.sbatch_script.file_name)
 

@@ -84,6 +84,7 @@ class SummaKeelingJob(KeelingJob):
         super().__init__(local_workspace_path, connection, sbatch_script, local_id=local_id, *args, **kwargs)
 
         # Directory: "/Workspace/Job/Model/"
+        model_source_folder_path = self._check_abs_path(model_source_folder_path)
         self.model_source_folder_path = model_source_folder_path
         self.model_folder_name = os.path.basename(self.model_source_folder_path)
 

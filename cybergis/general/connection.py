@@ -27,6 +27,7 @@ class SSHConnection(UtilsMixin, BaseConnection):
         self._client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         self.user_name = user_name
         self.user_pw = user_pw
+        self._check_abs_path(key_path, raise_on_false=True)
         self.key_path = key_path
 
     @property
@@ -90,9 +91,12 @@ class SSHConnection(UtilsMixin, BaseConnection):
         :param kwargs:
         :return:
         """
-        logger.info("Uploading {} to {}".format(local_fpath, remote_fpath))
         local_fpath = local_fpath.strip()
         remote_fpath = remote_fpath.strip()
+        logger.info("Uploading {} to {}".format(local_fpath, remote_fpath))
+        local_fpath = self._check_abs_path(local_fpath)
+        remote_fpath = self._check_abs_path(remote_fpath)
+
         cleanup = False
         if os.path.isdir(local_fpath):
             cleanup = True
@@ -112,13 +116,15 @@ class SSHConnection(UtilsMixin, BaseConnection):
             os.remove(local_fpath)
             logger.debug("Removing {}".format(local_fpath))
 
-
     def download(self, remote_fpath, local_fpath,
                  remote_is_folder=False, unzip=False, *args, **kwargs):
-        logger.info("Downloading {} to {}".format(remote_fpath, local_fpath))
-        cleanup = False
         remote_fpath = remote_fpath.strip()
         local_fpath = local_fpath.strip()
+        logger.info("Downloading {} to {}".format(remote_fpath, local_fpath))
+        remote_fpath = self._check_abs_path(remote_fpath)
+        local_fpath = self._check_abs_path(local_fpath)
+        cleanup = False
+
         if remote_is_folder:
             if not os.path.isdir(local_fpath):
                 raise Exception("local must be folder when remote is folder")

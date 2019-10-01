@@ -88,3 +88,13 @@ class UtilsMixin(object):
         with open(local_new_file_path, 'w') as file:
             file.write(filedata)
         logger.debug("New file saved to {}".format(local_new_file_path))
+
+    def _check_abs_path(self, in_path, raise_on_false=False):
+        out_path = in_path
+        if not os.path.isabs(in_path):
+            if raise_on_false:
+                raise Exception("{} is not a absolute path".format(in_path))
+            else:
+                out_path = os.path.abspath(out_path)
+                logger.warning("Convert path {} to {}".format(in_path, out_path))
+        return out_path
