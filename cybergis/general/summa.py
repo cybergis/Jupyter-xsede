@@ -151,6 +151,7 @@ class SummaKeelingJob(KeelingJob):
             self.prepare()
             self.upload()
             self.submit()
+            self.state = ""
         except Exception as ex:
             self.state = 0
 
