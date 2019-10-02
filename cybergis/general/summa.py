@@ -144,9 +144,15 @@ class SummaKeelingJob(KeelingJob):
                                   [(self.model_source_folder_path, self.singularity_model_folder_path)])
 
     def go(self):
-        self.prepare()
-        self.upload()
-        self.submit()
+        try:
+            if self.state == "go":
+                return
+            self.state = "go"
+            self.prepare()
+            self.upload()
+            self.submit()
+        except Exception as ex:
+            self.state = 0
 
     def download(self):
         self.connection.download(os.path.join(self.remote_model_folder_path, "output"),
