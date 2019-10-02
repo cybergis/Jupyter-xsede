@@ -139,8 +139,8 @@ class summaUI():
         sjob.go()
         self.job_local_id = sjob.local_id
         self.job_remote_id = sjob.remote_id
-        for i in range(600):
-            time.sleep(2)
+        for i in range(300):
+            time.sleep(3)
             status = sjob.job_status()
             if status == "ERROR":
                 logger.error("Job status ERROR")
