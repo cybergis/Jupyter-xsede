@@ -122,6 +122,7 @@ class summaUI():
         self.workspace_path = workspace_path
 
     def submit(self, b):
+        self.confirm.disabled = True
         self.node = self.nNodes.value
         self.walltime = self.walltime
 
@@ -139,7 +140,7 @@ class summaUI():
         self.job_local_id = sjob.local_id
         self.job_remote_id = sjob.remote_id
         for i in range(600):
-            time.sleep(1)
+            time.sleep(2)
             status = sjob.job_status()
             if status == "ERROR":
                 logger.error("Job status ERROR")
@@ -151,6 +152,7 @@ class summaUI():
             else:
                 logger.info(status)
         logger.info("Done")
+        self.confirm.disabled = False
 
     def runSumma(self):
         if (self.machine=="keeling"):
