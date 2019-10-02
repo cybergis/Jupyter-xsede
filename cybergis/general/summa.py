@@ -153,7 +153,7 @@ class SummaKeelingJob(KeelingJob):
             self.submit()
             self.state = ""
         except Exception as ex:
-            self.state = 0
+            self.state = ""
 
     def download(self):
         self.connection.download(os.path.join(self.remote_model_folder_path, "output"),
