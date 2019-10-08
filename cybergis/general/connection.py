@@ -48,9 +48,11 @@ class SSHConnection(UtilsMixin, BaseConnection):
                              password=self.user_pw)
 
     def _login_with_key(self, *args, **kwargs):
+
         self._client.connect(self.server,
                              username=self.user_name,
                              key_filename=self.key_path)
+
 
     def login(self, *args, **kwargs):
         if not self.logged_in:
