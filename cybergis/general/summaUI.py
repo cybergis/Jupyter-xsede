@@ -112,54 +112,64 @@ class summaUI():
     folder = SelectFolderButton()
     job_local_id = None
     job_remote_id = None
+    private_key_path = None
 
 
-    def __init__(self, model_folder_path, filemanager_path, workspace_path, username="cigi-gisolve", machine="keeling"):
+    def __init__(self, model_folder_path, filemanager_path, workspace_path,
+                 username="cigi-gisolve",
+                 machine="keeling",
+                 private_key_path="/opt/cybergis/.gisolve.key"):
         self.username=username
         self.machine="keeling"
         self.file_manager_path = filemanager_path
         self.model_source_folder_path = model_folder_path
         self.workspace_path = workspace_path
+        self.private_key_path = private_key_path
 
     def submit(self, b):
-        self.confirm.disabled = True
-        self.node = self.nNodes.value
-        self.walltime = self.walltime
+        b.disabled = True
 
-        #self.file_manager_path=self.filemanager.value
-        #self.model_source_folder_path=self.folder.value
+        try:
+            self.node = self.nNodes.value
+            self.walltime = self.walltime
 
-        model_source_folder_path = self.model_source_folder_path
-        file_manager_path = self.file_manager_path
+            #self.file_manager_path=self.filemanager.value
+            #self.model_source_folder_path=self.folder.value
 
-        summa_sbatch = SummaKeelingSBatchScript(self.walltime, self.node, self.jobname)
+            model_source_folder_path = self.model_source_folder_path
+            file_manager_path = self.file_manager_path
+
+            summa_sbatch = SummaKeelingSBatchScript(self.walltime, self.node, self.jobname)
 
 
-        sjob = SummaKeelingJob(self.workspace_path, self.keeling_con, summa_sbatch, model_source_folder_path, file_manager_path, name=self.jobname)
-        sjob.go()
-        self.job_local_id = sjob.local_id
-        self.job_remote_id = sjob.remote_id
-        for i in range(300):
-            time.sleep(3)
-            status = sjob.job_status()
-            if status == "ERROR":
-                logger.error("Job status ERROR")
-                break
-            elif status == "C":
-                logger.info("Job completed: {}; {}".format(sjob.local_id, sjob.remote_id))
-                sjob.download()
-                break
-            else:
-                logger.info(status)
-        logger.info("Done")
-        self.confirm.disabled = False
+            sjob = SummaKeelingJob(self.workspace_path, self.keeling_con, summa_sbatch, model_source_folder_path, file_manager_path, name=self.jobname)
+            sjob.go()
+            self.job_local_id = sjob.local_id
+            self.job_remote_id = sjob.remote_id
+            for i in range(300):
+                time.sleep(3)
+                status = sjob.job_status()
+                if status == "ERROR":
+                    logger.error("Job status ERROR")
+                    break
+                elif status == "C":
+                    logger.info("Job completed: {}; {}".format(sjob.local_id, sjob.remote_id))
+                    sjob.download()
+                    break
+                else:
+                    logger.info(status)
+            logger.info("Done")
+        except Exception as ex:
+            raise ex
+        finally:
+            b.disabled = False
 
     def runSumma(self):
         if (self.machine=="keeling"):
             if (self.username == "cigi-gisolve"):
                 self.keeling_con = SSHConnection("keeling.earth.illinois.edu",
                             user_name="cigi-gisolve",
-                            key_path="/opt/cybergis/.gisolve.key")
+                            key_path=self.private_key_path)
             else:
                 self.keeling_con = SSHConnection("keeling.earth.illinois.edu",
                             user_name=self.username)
@@ -181,6 +191,8 @@ class summaUI():
             Labeled('', self.confirm)
         ])
         display(submitForm)
+
+        self.confirm.on_click(self.submit, remove=True)
         self.confirm.on_click(self.submit)
 
     def getlocalid(self):
