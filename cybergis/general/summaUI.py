@@ -110,8 +110,6 @@ class summaUI():
     )
     filemanager=SelectFilesButton()
     folder = SelectFolderButton()
-    job_local_id = None
-    job_remote_id = None
 
 
     def __init__(self, model_folder_path, filemanager_path, workspace_path, username="cigi-gisolve", machine="keeling"):
@@ -122,9 +120,8 @@ class summaUI():
         self.workspace_path = workspace_path
 
     def submit(self, b):
-        self.confirm.disabled = True
         self.node = self.nNodes.value
-        self.walltime = self.walltime
+        self.walltime = self.walltime.value
 
         #self.file_manager_path=self.filemanager.value
         #self.model_source_folder_path=self.folder.value
@@ -136,11 +133,10 @@ class summaUI():
 
 
         sjob = SummaKeelingJob(self.workspace_path, self.keeling_con, summa_sbatch, model_source_folder_path, file_manager_path, name=self.jobname)
+        self.localID=sjob.getlocalid()
         sjob.go()
-        self.job_local_id = sjob.local_id
-        self.job_remote_id = sjob.remote_id
-        for i in range(300):
-            time.sleep(3)
+        for i in range(100):
+            time.sleep(1)
             status = sjob.job_status()
             if status == "ERROR":
                 logger.error("Job status ERROR")
@@ -152,7 +148,6 @@ class summaUI():
             else:
                 logger.info(status)
         logger.info("Done")
-        self.confirm.disabled = False
 
     def runSumma(self):
         if (self.machine=="keeling"):
@@ -181,7 +176,8 @@ class summaUI():
             Labeled('', self.confirm)
         ])
         display(submitForm)
-        self.confirm.on_click(self.submit)
+        
+    confirm.on_click(submit)
 
     def getlocalid(self):
         return self.localID
