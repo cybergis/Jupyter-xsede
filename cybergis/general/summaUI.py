@@ -14,11 +14,6 @@ from tkinter import Tk, filedialog
 import traitlets
 
 logger = logging.getLogger("cybergis")
-logger.setLevel("DEBUG")
-streamHandler = logging.StreamHandler()
-formatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
-streamHandler.setFormatter(formatter)
-logger.addHandler(streamHandler)
 
 def Labeled(label, widget):
     width='130px'
@@ -84,8 +79,10 @@ class summaUI():
     walltime = 10
     node = 1
     keeling_con = None
+    workspace_path = None
+    localID = None
     nNodes=IntSlider(
-        value=5,
+        value=1,
         min=1,
         max=10,
         step=1,
@@ -96,9 +93,9 @@ class summaUI():
         slider_color='white'
     )
     walltime=FloatSlider(
-        value=10,
+        value=1,
         min=1.0,
-        max=48.0,
+        max=10.0,
         step=1.0,
         continuous_update=False,
         orientation='horizontal',
@@ -115,40 +112,56 @@ class summaUI():
     folder = SelectFolderButton()
 
 
-    def __init__(self, username="gisolve", machine="keeling"):
+    def __init__(self, model_folder_path, filemanager_path, workspace_path, username="cigi-gisolve", machine="keeling"):
         self.username=username
         self.machine="keeling"
+        self.file_manager_path = filemanager_path
+        self.model_source_folder_path = model_folder_path
+        self.workspace_path = workspace_path
 
     def submit(self, b):
         self.node = self.nNodes.value
         self.walltime = self.walltime.value
-        self.file_manager_path=self.filemanager.value
-        self.model_source_folder_path=self.folder.value
+
+        #self.file_manager_path=self.filemanager.value
+        #self.model_source_folder_path=self.folder.value
 
         model_source_folder_path = self.model_source_folder_path
         file_manager_path = self.file_manager_path
 
         summa_sbatch = SummaKeelingSBatchScript(self.walltime, self.node, self.jobname)
-        sjob = SummaKeelingJob("/tmp", self.keeling_con, summa_sbatch, model_source_folder_path, file_manager_path, name=self.jobname)
-        sjob.prepare()
+
+
+        sjob = SummaKeelingJob(self.workspace_path, self.keeling_con, summa_sbatch, model_source_folder_path, file_manager_path, name=self.jobname)
+        self.localID=sjob.getlocalid()
+        sjob.go()
         for i in range(100):
             time.sleep(1)
-            print(sjob.job_status())
-
-        a = 1
+            status = sjob.job_status()
+            if status == "ERROR":
+                logger.error("Job status ERROR")
+                break
+            elif status == "C":
+                logger.info("Job completed: {}; {}".format(sjob.local_id, sjob.remote_id))
+                sjob.download()
+                break
+            else:
+                logger.info(status)
+        logger.info("Done")
 
     def runSumma(self):
         if (self.machine=="keeling"):
-            if (self.username == "gisolve"):
+            if (self.username == "cigi-gisolve"):
                 self.keeling_con = SSHConnection("keeling.earth.illinois.edu",
                             user_name="cigi-gisolve",
-                            key_path="/Users/CarnivalBug/Desktop/gisolve.key")
+                            key_path="/opt/cybergis/.gisolve.key")
             else:
                 self.keeling_con = SSHConnection("keeling.earth.illinois.edu",
-                            user_name="flu8")
+                            user_name=self.username)
                 self.keeling_con.login()
         else:
             print ("Not implemented yet")
+
 
         self.__submitUI()
 
@@ -158,9 +171,17 @@ class summaUI():
             Title(),
             Labeled('Walltime (h)', self.walltime),
             Labeled('Nodes', self.nNodes),
-            Labeled('Filemanager',self.filemanager),
-            Labeled('Work Folder', self.folder),
+            #Labeled('Filemanager',self.filemanager),
+            #Labeled('Work Folder', self.folder),
             Labeled('', self.confirm)
         ])
         display(submitForm)
+        
     confirm.on_click(submit)
+
+    def getlocalid(self):
+        return self.localID
+
+
+
+
