@@ -112,19 +112,14 @@ class summaUI():
     folder = SelectFolderButton()
     job_local_id = None
     job_remote_id = None
-    private_key = None
 
 
-    def __init__(self, model_folder_path, filemanager_path, workspace_path,
-                 username="cigi-gisolve",
-                 machine="keeling",
-                 private_key="/opt/cybergis/.gisolve.key"):
+    def __init__(self, model_folder_path, filemanager_path, workspace_path, username="cigi-gisolve", machine="keeling"):
         self.username=username
         self.machine="keeling"
         self.file_manager_path = filemanager_path
         self.model_source_folder_path = model_folder_path
         self.workspace_path = workspace_path
-        self.private_key = private_key
 
     def submit(self, b):
         self.confirm.disabled = True
@@ -164,7 +159,7 @@ class summaUI():
             if (self.username == "cigi-gisolve"):
                 self.keeling_con = SSHConnection("keeling.earth.illinois.edu",
                             user_name="cigi-gisolve",
-                            key_path=self.private_key)
+                            key_path="/opt/cybergis/.gisolve.key")
             else:
                 self.keeling_con = SSHConnection("keeling.earth.illinois.edu",
                             user_name=self.username)
