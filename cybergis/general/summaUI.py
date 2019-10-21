@@ -144,24 +144,42 @@ class summaUI():
 
             summa_sbatch = SummaKeelingSBatchScript(self.walltime, self.node, self.jobname)
 
-
-            sjob = SummaKeelingJob(self.workspace_path, self.keeling_con, summa_sbatch, model_source_folder_path, file_manager_path, name=self.jobname)
-            sjob.go()
-            self.job_local_id = sjob.local_id
-            self.job_remote_id = sjob.remote_id
-            for i in range(300):
-                time.sleep(3)
-                status = sjob.job_status()
-                if status == "ERROR":
-                    logger.error("Job status ERROR")
-                    break
-                elif status == "C":
-                    logger.info("Job completed: {}; {}".format(sjob.local_id, sjob.remote_id))
-                    sjob.download()
-                    break
-                else:
-                    logger.info(status)
-            logger.info("Done")
+            if (self.machine=="Keeling"):
+                sjob = SummaKeelingJob(self.workspace_path, self.keeling_con, summa_sbatch, model_source_folder_path, file_manager_path, name=self.jobname)
+                sjob.go()
+                self.job_local_id = sjob.local_id
+                self.job_remote_id = sjob.remote_id
+                for i in range(300):
+                    time.sleep(3)
+                    status = sjob.job_status()
+                    if status == "ERROR":
+                        logger.error("Job status ERROR")
+                        break
+                    elif status == "C":
+                        logger.info("Job completed: {}; {}".format(sjob.local_id, sjob.remote_id))
+                        sjob.download()
+                        break
+                    else:
+                        logger.info(status)
+                logger.info("Done")
+            elif (self.machine=="Comet"):
+                sjob = SummaCometJob(self.workspace_path, self.keeling_con, summa_sbatch, model_source_folder_path, file_manager_path, name=self.jobname)
+                sjob.go()
+                self.job_local_id = sjob.local_id
+                self.job_remote_id = sjob.remote_id
+                for i in range(300):
+                    time.sleep(3)
+                    status = sjob.job_status()
+                    if status == "ERROR":
+                        logger.error("Job status ERROR")
+                        break
+                    elif status == "C":
+                        logger.info("Job completed: {}; {}".format(sjob.local_id, sjob.remote_id))
+                        sjob.download()
+                        break
+                    else:
+                        logger.info(status)
+                logger.info("Done")
         except Exception as ex:
             raise ex
         finally:
@@ -175,6 +193,10 @@ class summaUI():
                             key_path=self.private_key_path)
             else:
                 self.keeling_con = SSHConnection("keeling.earth.illinois.edu",
+                            user_name=self.username,
+                            user_pw=self.user_pw)
+        elif (self.machine=="Comet"):
+            self.keeling_con = SSHConnection("comet.sdsc.edu",
                             user_name=self.username,
                             user_pw=self.user_pw)
         else:
