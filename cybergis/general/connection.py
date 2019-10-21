@@ -6,6 +6,7 @@ from getpass import getpass
 import os
 import zipfile
 
+
 logger = logging.getLogger("cybergis")
 
 
@@ -61,7 +62,9 @@ class SSHConnection(UtilsMixin, BaseConnection):
                 self._login_with_key()
             elif self.user_pw is None:
                 print("input password for {}".format(self.user_name))
-                self.user_pw = getpass()
+                self.user_pw = getpass.getpass()
+                self._login_with_password()
+            elif self.user_pw is not None:
                 self._login_with_password()
 
             self.remote_user_home = self.remote_home_directory()
