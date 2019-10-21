@@ -8,7 +8,8 @@ from .utils import *
 from .job import *
 from .summaUI import *
 import time
-from ipywidgets import *
+#from ipywidgets import *
+import ipywidgets as widgets
 from IPython.display import display
 from tkinter import Tk, filedialog
 import traitlets
@@ -126,7 +127,7 @@ class summaUI():
 
     def __submitUI(self):
 
-        nNodes=IntSlider(
+        nNodes=widgets.IntSlider(
             value=1,
             min=1,
             max=10,
@@ -137,7 +138,7 @@ class summaUI():
             readout_format='d',
             slider_color='white'
         )
-        walltime=FloatSlider(
+        walltime=widgets.FloatSlider(
             value=1,
             min=1.0,
             max=10.0,
@@ -148,12 +149,12 @@ class summaUI():
             readout_format='.1f',
             slider_color='white'
         )
-        confirm=Button(
+        confirm=widgets.Button(
             description='Submit Job',
             button_style='', # 'success', 'info', 'warning', 'danger' or ''
             tooltip='Submit job'
         )
-        submitForm=VBox([
+        submitForm=widgets.VBox([
             Title(),
             Labeled('Walltime (h)', walltime),
             Labeled('Nodes', nNodes),
