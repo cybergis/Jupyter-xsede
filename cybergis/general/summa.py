@@ -35,8 +35,8 @@ class SummaCometSBatchScript(KeelingSBatchScript):
 '''#!/bin/bash
 #SBATCH --job-name=$jobname
 #SBATCH --nodes=$nodes
-#SBATCH --time=$walltime
-sbatch singularity exec $simg_path python $userscript_path'''
+module load singularity/2.6.1
+sbatch -t $walltime singularity exec $simg_path python $userscript_path'''
 
     simg_path = "/home/flu8/SUMMA_IMAGE/pysumma_ensemble.img"
     userscript_path = None
