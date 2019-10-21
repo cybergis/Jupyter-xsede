@@ -113,18 +113,21 @@ class summaUI():
     job_local_id = None
     job_remote_id = None
     private_key_path = None
+    user_pw = None
 
 
     def __init__(self, model_folder_path, filemanager_path, workspace_path,
                  username="cigi-gisolve",
                  machine="keeling",
-                 private_key_path="/opt/cybergis/.gisolve.key"):
+                 private_key_path="/opt/cybergis/.gisolve.key",
+                 user_pw=None):
         self.username=username
         self.machine="keeling"
         self.file_manager_path = filemanager_path
         self.model_source_folder_path = model_folder_path
         self.workspace_path = workspace_path
         self.private_key_path = private_key_path
+        self.user_pw = user_pw
 
     def submit(self, b):
         b.disabled = True
@@ -172,8 +175,8 @@ class summaUI():
                             key_path=self.private_key_path)
             else:
                 self.keeling_con = SSHConnection("keeling.earth.illinois.edu",
-                            user_name=self.username)
-                self.keeling_con.login()
+                            user_name=self.username,
+                            user_pw=self.user_pw)
         else:
             print ("Not implemented yet")
 

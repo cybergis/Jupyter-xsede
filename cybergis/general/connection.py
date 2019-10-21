@@ -27,7 +27,8 @@ class SSHConnection(UtilsMixin, BaseConnection):
         self._client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         self.user_name = user_name
         self.user_pw = user_pw
-        self._check_abs_path(key_path, raise_on_false=True)
+        if (key_path!=None):
+            self._check_abs_path(key_path, raise_on_false=True)
         self.key_path = key_path
 
     @property
