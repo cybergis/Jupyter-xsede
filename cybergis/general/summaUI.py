@@ -174,7 +174,7 @@ class summaUI():
                     if status == "ERROR":
                         logger.error("Job status ERROR")
                         break
-                    elif status == "C":
+                    elif status == "UNKNOWN":
                         logger.info("Job completed: {}; {}".format(sjob.local_id, sjob.remote_id))
                         sjob.download()
                         break
