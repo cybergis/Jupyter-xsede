@@ -163,7 +163,7 @@ class summaUI():
                         logger.info(status)
                 logger.info("Done")
             elif (self.machine=="Comet"):
-                summa_sbatch = SummaCometSBatchScript(int(self.wt), self.node, self.jobname)
+                summa_sbatch = SummaCometSBatchScript(str(int(self.wt)), self.node, self.jobname)
                 sjob = SummaCometJob(self.workspace_path, self.keeling_con, summa_sbatch, model_source_folder_path, file_manager_path, name=self.jobname)
                 sjob.go()
                 self.job_local_id = sjob.local_id
