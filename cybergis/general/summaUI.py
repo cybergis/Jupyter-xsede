@@ -81,33 +81,6 @@ class summaUI():
     keeling_con = None
     workspace_path = None
     localID = None
-    nNodes=IntSlider(
-        value=1,
-        min=1,
-        max=10,
-        step=1,
-        continuous_update=False,
-        orientation='horizontal',
-        readout=True,
-        readout_format='d',
-        slider_color='white'
-    )
-    walltime=FloatSlider(
-        value=1,
-        min=1.0,
-        max=10.0,
-        step=1.0,
-        continuous_update=False,
-        orientation='horizontal',
-        readout=True,
-        readout_format='.1f',
-        slider_color='white'
-    )
-    confirm=Button(
-        description='Submit Job',
-        button_style='', # 'success', 'info', 'warning', 'danger' or ''
-        tooltip='Submit job'
-    )
     filemanager=SelectFilesButton()
     folder = SelectFolderButton()
     job_local_id = None
@@ -129,62 +102,6 @@ class summaUI():
         self.private_key_path = private_key_path
         self.user_pw = user_pw
 
-    def submit(self, b):
-        b.disabled = True
-
-        try:
-            self.node = self.nNodes.value
-            self.wt= self.walltime.value
-
-            #self.file_manager_path=self.filemanager.value
-            #self.model_source_folder_path=self.folder.value
-
-            model_source_folder_path = self.model_source_folder_path
-            file_manager_path = self.file_manager_path
-
-
-            if (self.machine=="keeling"):
-                summa_sbatch = SummaKeelingSBatchScript(int(self.wt), self.node, self.jobname)
-                sjob = SummaKeelingJob(self.workspace_path, self.keeling_con, summa_sbatch, model_source_folder_path, file_manager_path, name=self.jobname)
-                sjob.go()
-                self.job_local_id = sjob.local_id
-                self.job_remote_id = sjob.remote_id
-                for i in range(300):
-                    time.sleep(3)
-                    status = sjob.job_status()
-                    if status == "ERROR":
-                        logger.error("Job status ERROR")
-                        break
-                    elif status == "C":
-                        logger.info("Job completed: {}; {}".format(sjob.local_id, sjob.remote_id))
-                        sjob.download()
-                        break
-                    else:
-                        logger.info(status)
-                logger.info("Done")
-            elif (self.machine=="Comet"):
-                summa_sbatch = SummaCometSBatchScript(str(int(self.wt)), self.node, self.jobname)
-                sjob = SummaCometJob(self.workspace_path, self.keeling_con, summa_sbatch, model_source_folder_path, file_manager_path, name=self.jobname)
-                sjob.go()
-                self.job_local_id = sjob.local_id
-                self.job_remote_id = sjob.remote_id
-                for i in range(300):
-                    time.sleep(3)
-                    status = sjob.job_status()
-                    if status == "ERROR":
-                        logger.error("Job status ERROR")
-                        break
-                    elif status == "UNKNOWN":
-                        logger.info("Job completed: {}; {}".format(sjob.local_id, sjob.remote_id))
-                        sjob.download()
-                        break
-                    else:
-                        logger.info(status)
-                logger.info("Done")
-        except Exception as ex:
-            raise ex
-        finally:
-            b.disabled = False
 
     def runSumma(self):
         if (self.machine=="keeling"):
@@ -208,18 +125,102 @@ class summaUI():
 
 
     def __submitUI(self):
+
+        nNodes=IntSlider(
+            value=1,
+            min=1,
+            max=10,
+            step=1,
+            continuous_update=False,
+            orientation='horizontal',
+            readout=True,
+            readout_format='d',
+            slider_color='white'
+        )
+        walltime=FloatSlider(
+            value=1,
+            min=1.0,
+            max=10.0,
+            step=1.0,
+            continuous_update=False,
+            orientation='horizontal',
+            readout=True,
+            readout_format='.1f',
+            slider_color='white'
+        )
+        confirm=Button(
+            description='Submit Job',
+            button_style='', # 'success', 'info', 'warning', 'danger' or ''
+            tooltip='Submit job'
+        )
         submitForm=VBox([
             Title(),
-            Labeled('Walltime (h)', self.walltime),
-            Labeled('Nodes', self.nNodes),
+            Labeled('Walltime (h)', walltime),
+            Labeled('Nodes', nNodes),
             #Labeled('Filemanager',self.filemanager),
             #Labeled('Work Folder', self.folder),
-            Labeled('', self.confirm)
+            Labeled('', confirm)
         ])
         display(submitForm)
 
-        self.confirm.on_click(self.submit, remove=True)
-        self.confirm.on_click(self.submit)
+        def submit(b):
+            b.disabled = True
+
+            try:
+                self.node = nNodes.value
+                self.wt= walltime.value
+
+                #self.file_manager_path=self.filemanager.value
+                #self.model_source_folder_path=self.folder.value
+
+                model_source_folder_path = self.model_source_folder_path
+                file_manager_path = self.file_manager_path
+
+
+                if (self.machine=="keeling"):
+                    summa_sbatch = SummaKeelingSBatchScript(int(self.wt), self.node, self.jobname)
+                    sjob = SummaKeelingJob(self.workspace_path, self.keeling_con, summa_sbatch, model_source_folder_path, file_manager_path, name=self.jobname)
+                    sjob.go()
+                    self.job_local_id = sjob.local_id
+                    self.job_remote_id = sjob.remote_id
+                    for i in range(300):
+                        time.sleep(3)
+                        status = sjob.job_status()
+                        if status == "ERROR":
+                            logger.error("Job status ERROR")
+                            break
+                        elif status == "C":
+                            logger.info("Job completed: {}; {}".format(sjob.local_id, sjob.remote_id))
+                            sjob.download()
+                            break
+                        else:
+                            logger.info(status)
+                    logger.info("Done")
+                elif (self.machine=="Comet"):
+                    summa_sbatch = SummaCometSBatchScript(str(int(self.wt)), self.node, self.jobname)
+                    sjob = SummaCometJob(self.workspace_path, self.keeling_con, summa_sbatch, model_source_folder_path, file_manager_path, name=self.jobname)
+                    sjob.go()
+                    self.job_local_id = sjob.local_id
+                    self.job_remote_id = sjob.remote_id
+                    for i in range(300):
+                        time.sleep(3)
+                        status = sjob.job_status()
+                        if status == "ERROR":
+                            logger.error("Job status ERROR")
+                            break
+                        elif status == "UNKNOWN":
+                            logger.info("Job completed: {}; {}".format(sjob.local_id, sjob.remote_id))
+                            sjob.download()
+                            break
+                        else:
+                            logger.info(status)
+                    logger.info("Done")
+            except Exception as ex:
+                raise ex
+            finally:
+                b.disabled = False
+
+        confirm.on_click(submit)
 
     def getlocalid(self):
         return self.localID
