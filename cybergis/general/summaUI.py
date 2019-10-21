@@ -122,7 +122,7 @@ class summaUI():
                  private_key_path="/opt/cybergis/.gisolve.key",
                  user_pw=None):
         self.username=username
-        self.machine="keeling"
+        self.machine=machine
         self.file_manager_path = filemanager_path
         self.model_source_folder_path = model_folder_path
         self.workspace_path = workspace_path
