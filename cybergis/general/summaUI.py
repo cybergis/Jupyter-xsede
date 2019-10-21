@@ -142,9 +142,9 @@ class summaUI():
             model_source_folder_path = self.model_source_folder_path
             file_manager_path = self.file_manager_path
 
-            summa_sbatch = SummaKeelingSBatchScript(self.walltime, self.node, self.jobname)
 
-            if (self.machine=="Keeling"):
+            if (self.machine=="keeling"):
+                summa_sbatch = SummaKeelingSBatchScript(self.walltime, self.node, self.jobname)
                 sjob = SummaKeelingJob(self.workspace_path, self.keeling_con, summa_sbatch, model_source_folder_path, file_manager_path, name=self.jobname)
                 sjob.go()
                 self.job_local_id = sjob.local_id
@@ -163,6 +163,7 @@ class summaUI():
                         logger.info(status)
                 logger.info("Done")
             elif (self.machine=="Comet"):
+                summa_sbatch = SummaCometSBatchScript(self.walltime, self.node, self.jobname)
                 sjob = SummaCometJob(self.workspace_path, self.keeling_con, summa_sbatch, model_source_folder_path, file_manager_path, name=self.jobname)
                 sjob.go()
                 self.job_local_id = sjob.local_id
