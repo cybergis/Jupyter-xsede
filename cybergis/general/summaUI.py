@@ -8,7 +8,7 @@ from .utils import *
 from .job import *
 from .summaUI import *
 import time
-#from ipywidgets import *
+from ipywidgets import *
 import ipywidgets as widgets
 from IPython.display import display
 from tkinter import Tk, filedialog
