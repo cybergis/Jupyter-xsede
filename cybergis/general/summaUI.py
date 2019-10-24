@@ -115,7 +115,12 @@ class summaUI():
                             user_name=self.username,
                             user_pw=self.user_pw)
         elif (self.machine=="Comet"):
-            self.keeling_con = SSHConnection("comet.sdsc.edu",
+            if (self.username=="cigi-gisolve":
+                self.keeling_con = SSHConnection("comet.sdsc.edu",
+                            user_name="cybergis",
+                            key_path=self.private_key_path))
+            else:
+                self.keeling_con = SSHConnection("comet.sdsc.edu",
                             user_name=self.username,
                             user_pw=self.user_pw)
         else:
