@@ -38,7 +38,7 @@ class SummaCometSBatchScript(KeelingSBatchScript):
 module load singularity/2.6.1
 sbatch -t $walltime singularity exec $simg_path python $userscript_path'''
 
-    simg_path = "/home/cybergis/SUMMA_IMAG/pysumma_ensemble.img"
+    simg_path = "/home/cybergis/SUMMA_IMAGE/pysumma_ensemble.img"
     userscript_path = None
 
     def __init__(self, walltime, nodes, jobname,
