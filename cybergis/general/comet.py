@@ -20,9 +20,6 @@ class CometJob(SlurmJob):
     connection_class = SSHConnection
     sbatch_script_class = CometSBatchScript
 
-    def prepare(self):
-        raise NotImplementedError()
-
     def _save_remote_id(self, msg, *args, **kwargs):
         if 'ERROR' in msg or 'WARN' in msg:
             logger.error('Submit job {} error: {}'.format(self.local_id, msg))

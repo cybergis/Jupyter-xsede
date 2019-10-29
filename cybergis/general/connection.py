@@ -61,9 +61,10 @@ class SSHConnection(UtilsMixin, BaseConnection):
             if self.key_path is not None:
                 self._login_with_key()
             elif self.user_pw is None:
-                print("input password for {}".format(self.user_name))
-                self.user_pw = getpass.getpass()
-                self._login_with_password()
+                raise NotImplementedError()
+                #print("input password for {}".format(self.user_name))
+                #self.user_pw = getpass.getpass()
+                #self._login_with_password()
             elif self.user_pw is not None:
                 self._login_with_password()
 
