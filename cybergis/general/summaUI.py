@@ -114,7 +114,7 @@ class summaUI():
                 self.keeling_con = SSHConnection("keeling.earth.illinois.edu",
                             user_name=self.username,
                             user_pw=self.user_pw)
-        elif (self.machine=="Comet"):
+        elif (self.machine.lower()=="comet"):
             if (self.username=="cigi-gisolve"):
                 self.keeling_con = SSHConnection("comet.sdsc.edu",
                             user_name="cybergis",
@@ -202,7 +202,7 @@ class summaUI():
                         else:
                             logger.info(status)
                     logger.info("Done")
-                elif (self.machine=="Comet"):
+                elif (self.machine.lower()=="comet"):
                     summa_sbatch = SummaCometSBatchScript(str(int(self.wt)), self.node, self.jobname)
                     sjob = SummaCometJob(self.workspace_path, self.keeling_con, summa_sbatch, model_source_folder_path, file_manager_path, name=self.jobname)
                     sjob.go()
