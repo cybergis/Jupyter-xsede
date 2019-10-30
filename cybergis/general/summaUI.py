@@ -89,7 +89,6 @@ class summaUI():
     private_key_path = None
     user_pw = None
 
-
     def __init__(self, model_folder_path, filemanager_path, workspace_path,
                  username="cigi-gisolve",
                  machine="keeling",
@@ -103,7 +102,6 @@ class summaUI():
         self.private_key_path = private_key_path
         self.user_pw = user_pw
 
-
     def runSumma(self):
         if (self.machine=="keeling"):
             if (self.username == "cigi-gisolve"):
@@ -114,8 +112,8 @@ class summaUI():
                 self.keeling_con = SSHConnection("keeling.earth.illinois.edu",
                             user_name=self.username,
                             user_pw=self.user_pw)
-        elif (self.machine.lower()=="comet"):
-            if (self.username=="cigi-gisolve"):
+        elif self.machine.lower()=="comet":
+            if self.username=="cigi-gisolve":
                 self.keeling_con = SSHConnection("comet.sdsc.edu",
                             user_name="cybergis",
                             key_path=self.private_key_path)
@@ -124,7 +122,7 @@ class summaUI():
                             user_name=self.username,
                             user_pw=self.user_pw)
         else:
-            print ("Not implemented yet")
+            print("Not implemented yet")
 
 
         self.__submitUI()

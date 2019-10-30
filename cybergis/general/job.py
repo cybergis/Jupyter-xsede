@@ -129,7 +129,7 @@ class SlurmJob(UtilsMixin, BaseJob):
 
     def prepare(self, *args, **kwargs):
 
-      raise NotImplementedError()
+        raise NotImplementedError()
 
     def job_status(self):
         # monitor job status

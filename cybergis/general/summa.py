@@ -175,7 +175,5 @@ class SummaKeelingJob(KeelingJob):
         self.connection.download(self.remote_slurm_out_file_path, self.local_job_folder_path)
 
 
-
-
 class SummaCometJob(SummaKeelingJob):
     sbatch_script_class = SummaCometSBatchScript
