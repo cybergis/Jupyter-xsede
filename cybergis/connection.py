@@ -1,13 +1,11 @@
-from .utils import UtilsMixin
-from .base import BaseConnection
-import paramiko
-import logging
-from getpass import getpass
 import os
 import zipfile
+from getpass import getpass
 
+import paramiko
 
-logger = logging.getLogger("cybergis")
+from .utils import UtilsMixin
+from .base import BaseConnection
 
 
 class SSHConnection(UtilsMixin, BaseConnection):
@@ -23,6 +21,7 @@ class SSHConnection(UtilsMixin, BaseConnection):
     _logged_in = False
 
     def __init__(self, server, user_name=None, user_pw=None, key_path=None, **kargs):
+        super().__init__()
         self.server = server
         self._client = paramiko.SSHClient()
         self._client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -73,13 +72,13 @@ class SSHConnection(UtilsMixin, BaseConnection):
 
             self._sftp = self.client.open_sftp()
             self._logged_in = True
-        logger.info("SSH logged into {} as user {}".format(self.server,
+        self.logger.info("SSH logged into {} as user {}".format(self.server,
                                                             self.remote_user_name))
 
     def logout(self, *args, **kwargs):
         self._sftp.close()
         self._client.close()
-        logger.info("SSH logged off {} as user {}".format(self.server,
+        self.logger.info("SSH logged off {} as user {}".format(self.server,
                                                            self.remote_user_name))
         self._logged_in = False
 
@@ -100,7 +99,7 @@ class SSHConnection(UtilsMixin, BaseConnection):
         """
         local_fpath = local_fpath.strip()
         remote_fpath = remote_fpath.strip()
-        logger.info("Uploading {} to {}".format(local_fpath, remote_fpath))
+        self.logger.info("Uploading {} to {}".format(local_fpath, remote_fpath))
         local_fpath = self._check_abs_path(local_fpath)
         remote_fpath = self._check_abs_path(remote_fpath)
 
@@ -121,13 +120,13 @@ class SSHConnection(UtilsMixin, BaseConnection):
             self.remote_rm(remote_fpath)
         if cleanup:
             os.remove(local_fpath)
-            logger.debug("Removing {}".format(local_fpath))
+            self.logger.debug("Removing {}".format(local_fpath))
 
     def download(self, remote_fpath, local_fpath,
                  remote_is_folder=False, unzip=False, *args, **kwargs):
         remote_fpath = remote_fpath.strip()
         local_fpath = local_fpath.strip()
-        logger.info("Downloading {} to {}".format(remote_fpath, local_fpath))
+        self.logger.info("Downloading {} to {}".format(remote_fpath, local_fpath))
         remote_fpath = self._check_abs_path(remote_fpath)
         local_fpath = self._check_abs_path(local_fpath)
         cleanup = False
@@ -158,18 +157,18 @@ class SSHConnection(UtilsMixin, BaseConnection):
                 os.remove(local_fpath)
 
     def run_command(self, command, line_delimiter='', raise_on_error=False, *args, **kwargs):
-        logger.debug("run_commnad on remote: " + command)
+        self.logger.debug("run_commnad on remote: " + command)
         try:
             stdin, stdout, stderr = self._client.exec_command(command)
         except Exception as e:
-            logger.warning("Got error running command " + command + " : " + str(e))
+            self.logger.warning("Got error running command " + command + " : " + str(e))
             raise e
         out = list(map(self.remove_newlines, stdout.readlines()))
         err = list(map(self.remove_newlines, stderr.readlines()))
-        logger.debug("out: " + str(out))
-        logger.debug("err: " + str(err))
+        self.logger.debug("out: " + str(out))
+        self.logger.debug("err: " + str(err))
         if len(err) > 0:
-            logger.warning("run_command {} got error {}".format(command, ';'.join(err)))
+            self.logger.warning("run_command {} got error {}".format(command, ';'.join(err)))
             if raise_on_error:
                 raise Exception(message=';'.join(err))
         if len(out) == 0:
@@ -205,23 +204,23 @@ class SSHConnection(UtilsMixin, BaseConnection):
     def remote_unzip(self, zip_fpath, output_folder=None):
         if output_folder is None:
             output_folder = self.remote_pwd()
-        logger.debug("remote unzipping {} to {}".format(zip_fpath, output_folder))
+        self.logger.debug("remote unzipping {} to {}".format(zip_fpath, output_folder))
         self.run_command("unzip -o {} -d {}".format(zip_fpath, output_folder))
 
     def remote_rm(self, target_path):
-        logger.debug("remote rm: {}".format(target_path))
+        self.logger.debug("remote rm: {}".format(target_path))
         self.run_command("rm -rf {}".format(target_path))
 
     def remote_zip(self, target_path, output_fpath):
-        logger.debug("remote zip: {} to {}".format(target_path, output_fpath))
+        self.logger.debug("remote zip: {} to {}".format(target_path, output_fpath))
         self.run_command("cd {} && zip -r {} {}".format(os.path.dirname(target_path),
                                                         output_fpath,
                                                         os.path.basename(target_path)))
 
     def _sftp_get(self, remote_fpath, local_fpath):
-        logger.debug("sftp getting {} to {}".format(remote_fpath, local_fpath))
+        self.logger.debug("sftp getting {} to {}".format(remote_fpath, local_fpath))
         self.sftp.get(remote_fpath, local_fpath)
 
     def _sftp_push(self, local_fpath, remote_fpath):
-        logger.debug("sftp pushing {} to remote @ {}".format(local_fpath, remote_fpath))
+        self.logger.debug("sftp pushing {} to remote @ {}".format(local_fpath, remote_fpath))
         self.sftp.put(local_fpath, remote_fpath)

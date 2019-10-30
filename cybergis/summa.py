@@ -1,10 +1,7 @@
-import logging
 import os
 import time
 from .keeling import KeelingJob, KeelingSBatchScript
 from .base import BaseScript
-
-logger = logging.getLogger("cybergis")
 
 
 class SummaKeelingSBatchScript(KeelingSBatchScript):
@@ -74,6 +71,7 @@ S.run('local', run_suffix='_test')
 
     def __init__(self, singularity_job_folder_path, model_folder_name,
                  file_manager_name, *args, **kargs):
+        super().__init__()
         self.singularity_job_folder_path = singularity_job_folder_path
         self.model_folder_name = model_folder_name
         self.file_manager_name = file_manager_name

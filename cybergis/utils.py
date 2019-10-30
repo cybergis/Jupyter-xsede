@@ -3,7 +3,18 @@ import tempfile
 import shutil
 import logging
 
+
 logger = logging.getLogger("cybergis")
+logger.setLevel("INFO")
+streamHandler = logging.StreamHandler()
+formatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
+streamHandler.setFormatter(formatter)
+logger.addHandler(streamHandler)
+
+
+def get_logger():
+    logger = logging.getLogger("cybergis")
+    return logger
 
 
 class UtilsMixin(object):

@@ -1,30 +1,30 @@
-import logging
 import os
+import time
+
+import ipywidgets as widgets
+from IPython.display import display
+from tkinter import Tk, filedialog
+import traitlets
+
 from .base import *
 from .connection import *
 from .keeling import *
 from .summa import *
 from .utils import *
 from .job import *
-from .summaUI import *
-import time
-from ipywidgets import *
-import ipywidgets as widgets
-from IPython.display import display
-from tkinter import Tk, filedialog
-import traitlets
+from .utils import get_logger
 
-logger = logging.getLogger("cybergis")
+logger = get_logger()
 
 def Labeled(label, widget):
     width='130px'
-    return (Box([HTML(value='<p align="right" style="width:%s">%s&nbsp&nbsp</p>'%(width,label)),widget],
-                layout=Layout(display='flex',align_items='center',flex_flow='row')))
+    return (widgets.Box([widgets.HTML(value='<p align="right" style="width:%s">%s&nbsp&nbsp</p>'%(width,label)),widget],
+                layout=widgets.Layout(display='flex',align_items='center',flex_flow='row')))
 
 
 def Title():
-    return (Box([HTML(value='<h1>Welcome to Summa General Case</h1>')],
-        layout=Layout(display='flex',align_items='center',flex_flow='row')
+    return (widgets.Box([widgets.HTML(value='<h1>Welcome to Summa General Case</h1>')],
+        layout=widgets.Layout(display='flex',align_items='center',flex_flow='row')
         ))
 
 class SelectFilesButton(widgets.Button):
@@ -127,6 +127,51 @@ class summaUI():
 
         self.__submitUI()
 
+    def go(self):
+
+        model_source_folder_path = self.model_source_folder_path
+        file_manager_path = self.file_manager_path
+
+        if (self.machine == "keeling"):
+            summa_sbatch = SummaKeelingSBatchScript(int(self.wt), self.node, self.jobname)
+            sjob = SummaKeelingJob(self.workspace_path, self.keeling_con, summa_sbatch, model_source_folder_path,
+                                   file_manager_path, name=self.jobname)
+            sjob.go()
+            self.job_local_id = sjob.local_id
+            self.job_remote_id = sjob.remote_id
+            for i in range(300):
+                time.sleep(3)
+                status = sjob.job_status()
+                if status == "ERROR":
+                    logger.error("Job status ERROR")
+                    break
+                elif status == "C":
+                    logger.info("Job completed: {}; {}".format(sjob.local_id, sjob.remote_id))
+                    sjob.download()
+                    break
+                else:
+                    logger.info(status)
+            logger.info("Done")
+        elif (self.machine.lower() == "comet"):
+            summa_sbatch = SummaCometSBatchScript(str(int(self.wt)), self.node, self.jobname)
+            sjob = SummaCometJob(self.workspace_path, self.keeling_con, summa_sbatch, model_source_folder_path,
+                                 file_manager_path, name=self.jobname)
+            sjob.go()
+            self.job_local_id = sjob.local_id
+            self.job_remote_id = sjob.remote_id
+            for i in range(300):
+                time.sleep(3)
+                status = sjob.job_status()
+                if status == "ERROR":
+                    logger.error("Job status ERROR")
+                    break
+                elif status == "UNKNOWN":
+                    logger.info("Job completed: {}; {}".format(sjob.local_id, sjob.remote_id))
+                    sjob.download()
+                    break
+                else:
+                    logger.info(status)
+            logger.info("Done")
 
     def __submitUI(self):
 
@@ -172,53 +217,9 @@ class summaUI():
 
             try:
                 self.node = nNodes.value
-                self.wt= walltime.value
+                self.wt = walltime.value
 
-                #self.file_manager_path=self.filemanager.value
-                #self.model_source_folder_path=self.folder.value
-
-                model_source_folder_path = self.model_source_folder_path
-                file_manager_path = self.file_manager_path
-
-
-                if (self.machine=="keeling"):
-                    summa_sbatch = SummaKeelingSBatchScript(int(self.wt), self.node, self.jobname)
-                    sjob = SummaKeelingJob(self.workspace_path, self.keeling_con, summa_sbatch, model_source_folder_path, file_manager_path, name=self.jobname)
-                    sjob.go()
-                    self.job_local_id = sjob.local_id
-                    self.job_remote_id = sjob.remote_id
-                    for i in range(300):
-                        time.sleep(3)
-                        status = sjob.job_status()
-                        if status == "ERROR":
-                            logger.error("Job status ERROR")
-                            break
-                        elif status == "C":
-                            logger.info("Job completed: {}; {}".format(sjob.local_id, sjob.remote_id))
-                            sjob.download()
-                            break
-                        else:
-                            logger.info(status)
-                    logger.info("Done")
-                elif (self.machine.lower()=="comet"):
-                    summa_sbatch = SummaCometSBatchScript(str(int(self.wt)), self.node, self.jobname)
-                    sjob = SummaCometJob(self.workspace_path, self.keeling_con, summa_sbatch, model_source_folder_path, file_manager_path, name=self.jobname)
-                    sjob.go()
-                    self.job_local_id = sjob.local_id
-                    self.job_remote_id = sjob.remote_id
-                    for i in range(300):
-                        time.sleep(3)
-                        status = sjob.job_status()
-                        if status == "ERROR":
-                            logger.error("Job status ERROR")
-                            break
-                        elif status == "UNKNOWN":
-                            logger.info("Job completed: {}; {}".format(sjob.local_id, sjob.remote_id))
-                            sjob.download()
-                            break
-                        else:
-                            logger.info(status)
-                    logger.info("Done")
+                self.go()
             except Exception as ex:
                 raise ex
             finally:
