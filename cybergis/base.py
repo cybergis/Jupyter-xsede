@@ -1,13 +1,15 @@
-import logging
 import os
 from string import Template
 
-logger = logging.getLogger("cybergis")
+from .utils import get_logger
 
 
 class BaseConnection(object):
     connection_type = str()
     server = str()
+
+    def __init__(self):
+        self.logger = get_logger()
 
     def login(self):
         raise NotImplementedError()
@@ -32,6 +34,9 @@ class BaseScript(object):
     remote_folder_path = ""
     SCRIPT_TEMPLATE = str()
 
+    def __init__(self):
+        self.logger = get_logger()
+
     @property
     def local_path(self):
         return self._local_path
@@ -55,19 +60,21 @@ class BaseScript(object):
         script = Template(self.SCRIPT_TEMPLATE).substitute(
             **parameter_dict
         )
-        #logger.debug(script)
+        #self.logger.debug(script)
         if os.path.isdir(local_folder_path):
             self._local_path = os.path.join(local_folder_path, self.file_name)
             with open(self._local_path, 'w') as f:
                 f.write(script)
             os.chmod(self._local_path, 0o775)
-            logger.debug("{} saved to {}".format(self.name, self.local_path))
+            self.logger.debug("{} saved to {}".format(self.name, self.local_path))
             return self._local_path
         else:
             return script
 
 
 class BaseJob(object):
+    def __init__(self):
+        self.logger = get_logger()
     pass
 
 
@@ -91,6 +98,7 @@ sbatch $exe'''
     exe = ""
 
     def __init__(self, walltime, nodes, jobname, exe, stdout=None, stderr=None):
+        super().__init__()
         self.walltime = walltime
         self.nodes = nodes
         self.jobname = jobname

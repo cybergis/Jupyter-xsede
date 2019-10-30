@@ -1,34 +1,30 @@
-import logging
 import os
+import time
+
+import ipywidgets as widgets
+from IPython.display import display
+from tkinter import Tk, filedialog
+import traitlets
+
 from .base import *
 from .connection import *
 from .keeling import *
 from .summa import *
 from .utils import *
 from .job import *
-from .summaUI import *
-import time
-from ipywidgets import *
-from IPython.display import display
-from tkinter import Tk, filedialog
-import traitlets
+from .utils import get_logger
 
-logger = logging.getLogger("cybergis")
-logger.setLevel("DEBUG")
-streamHandler = logging.StreamHandler()
-formatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
-streamHandler.setFormatter(formatter)
-logger.addHandler(streamHandler)
+logger = get_logger()
 
 def Labeled(label, widget):
     width='130px'
-    return (Box([HTML(value='<p align="right" style="width:%s">%s&nbsp&nbsp</p>'%(width,label)),widget],
-                layout=Layout(display='flex',align_items='center',flex_flow='row')))
+    return (widgets.Box([widgets.HTML(value='<p align="right" style="width:%s">%s&nbsp&nbsp</p>'%(width,label)),widget],
+                layout=widgets.Layout(display='flex',align_items='center',flex_flow='row')))
 
 
 def Title():
-    return (Box([HTML(value='<h1>Welcome to Summa General Case</h1>')],
-        layout=Layout(display='flex',align_items='center',flex_flow='row')
+    return (widgets.Box([widgets.HTML(value='<h1>Welcome to Summa General Case</h1>')],
+        layout=widgets.Layout(display='flex',align_items='center',flex_flow='row')
         ))
 
 class SelectFilesButton(widgets.Button):
@@ -81,89 +77,158 @@ class summaUI():
     model_source_folder_path = "" ## the path to the summa testcase folder
     file_manager_path = "" ## the path to the filemanager folder
     jobname = "test" ## the name of the job
-    walltime = 10
+    wt = 10
     node = 1
     keeling_con = None
-    nNodes=IntSlider(
-        value=5,
-        min=1,
-        max=10,
-        step=1,
-        continuous_update=False,
-        orientation='horizontal',
-        readout=True,
-        readout_format='d',
-        slider_color='white'
-    )
-    walltime=FloatSlider(
-        value=10,
-        min=1.0,
-        max=48.0,
-        step=1.0,
-        continuous_update=False,
-        orientation='horizontal',
-        readout=True,
-        readout_format='.1f',
-        slider_color='white'
-    )
-    confirm=Button(
-        description='Submit Job',
-        button_style='', # 'success', 'info', 'warning', 'danger' or ''
-        tooltip='Submit job'
-    )
+    workspace_path = None
+    localID = None
     filemanager=SelectFilesButton()
     folder = SelectFolderButton()
+    job_local_id = None
+    job_remote_id = None
+    private_key_path = None
+    user_pw = None
 
-
-    def __init__(self, username="gisolve", machine="keeling"):
+    def __init__(self, model_folder_path, filemanager_path, workspace_path,
+                 username="cigi-gisolve",
+                 machine="keeling",
+                 private_key_path="/opt/cybergis/.gisolve.key",
+                 user_pw=None):
         self.username=username
-        self.machine="keeling"
+        self.machine=machine
+        self.file_manager_path = filemanager_path
+        self.model_source_folder_path = model_folder_path
+        self.workspace_path = workspace_path
+        self.private_key_path = private_key_path
+        self.user_pw = user_pw
 
-    def submit(self, b):
-        self.node = self.nNodes.value
-        self.walltime = self.walltime.value
-        self.file_manager_path=self.filemanager.value
-        self.model_source_folder_path=self.folder.value
+    def runSumma(self):
+        if (self.machine=="keeling"):
+            if (self.username == "cigi-gisolve"):
+                self.keeling_con = SSHConnection("keeling.earth.illinois.edu",
+                            user_name="cigi-gisolve",
+                            key_path=self.private_key_path)
+            else:
+                self.keeling_con = SSHConnection("keeling.earth.illinois.edu",
+                            user_name=self.username,
+                            user_pw=self.user_pw)
+        elif self.machine.lower()=="comet":
+            if self.username=="cigi-gisolve":
+                self.keeling_con = SSHConnection("comet.sdsc.edu",
+                            user_name="cybergis",
+                            key_path=self.private_key_path)
+            else:
+                self.keeling_con = SSHConnection("comet.sdsc.edu",
+                            user_name=self.username,
+                            user_pw=self.user_pw)
+        else:
+            print("Not implemented yet")
+
+
+        self.__submitUI()
+
+    def go(self):
 
         model_source_folder_path = self.model_source_folder_path
         file_manager_path = self.file_manager_path
 
-        summa_sbatch = SummaKeelingSBatchScript(self.walltime, self.node, self.jobname)
-        sjob = SummaKeelingJob("/tmp", self.keeling_con, summa_sbatch, model_source_folder_path, file_manager_path, name=self.jobname)
-        sjob.prepare()
-        for i in range(100):
-            time.sleep(1)
-            print(sjob.job_status())
-
-        a = 1
-
-    def runSumma(self):
-        if (self.machine=="keeling"):
-            if (self.username == "gisolve"):
-                self.keeling_con = SSHConnection("keeling.earth.illinois.edu",
-                            user_name="cigi-gisolve",
-                            key_path="/Users/CarnivalBug/Desktop/gisolve.key")
-            else:
-                self.keeling_con = SSHConnection("keeling.earth.illinois.edu",
-                            user_name="flu8")
-                self.keeling_con.login()
-        else:
-            print ("Not implemented yet")
-
-        self.__submitUI()
-
+        if (self.machine == "keeling"):
+            summa_sbatch = SummaKeelingSBatchScript(int(self.wt), self.node, self.jobname)
+            sjob = SummaKeelingJob(self.workspace_path, self.keeling_con, summa_sbatch, model_source_folder_path,
+                                   file_manager_path, name=self.jobname)
+            sjob.go()
+            self.job_local_id = sjob.local_id
+            self.job_remote_id = sjob.remote_id
+            for i in range(300):
+                time.sleep(3)
+                status = sjob.job_status()
+                if status == "ERROR":
+                    logger.error("Job status ERROR")
+                    break
+                elif status == "C":
+                    logger.info("Job completed: {}; {}".format(sjob.local_id, sjob.remote_id))
+                    sjob.download()
+                    break
+                else:
+                    logger.info(status)
+            logger.info("Done")
+        elif (self.machine.lower() == "comet"):
+            summa_sbatch = SummaCometSBatchScript(str(int(self.wt)), self.node, self.jobname)
+            sjob = SummaCometJob(self.workspace_path, self.keeling_con, summa_sbatch, model_source_folder_path,
+                                 file_manager_path, name=self.jobname)
+            sjob.go()
+            self.job_local_id = sjob.local_id
+            self.job_remote_id = sjob.remote_id
+            for i in range(300):
+                time.sleep(3)
+                status = sjob.job_status()
+                if status == "ERROR":
+                    logger.error("Job status ERROR")
+                    break
+                elif status == "UNKNOWN":
+                    logger.info("Job completed: {}; {}".format(sjob.local_id, sjob.remote_id))
+                    sjob.download()
+                    break
+                else:
+                    logger.info(status)
+            logger.info("Done")
 
     def __submitUI(self):
-        submitForm=VBox([
+
+        nNodes=widgets.IntSlider(
+            value=1,
+            min=1,
+            max=10,
+            step=1,
+            continuous_update=False,
+            orientation='horizontal',
+            readout=True,
+            readout_format='d',
+            slider_color='white'
+        )
+        walltime=widgets.FloatSlider(
+            value=1,
+            min=1.0,
+            max=10.0,
+            step=1.0,
+            continuous_update=False,
+            orientation='horizontal',
+            readout=True,
+            readout_format='.1f',
+            slider_color='white'
+        )
+        confirm=widgets.Button(
+            description='Submit Job',
+            button_style='', # 'success', 'info', 'warning', 'danger' or ''
+            tooltip='Submit job'
+        )
+        submitForm=widgets.VBox([
             Title(),
-            Labeled('Walltime (h)', self.walltime),
-            Labeled('Nodes', self.nNodes),
-            Labeled('Filemanager',self.filemanager),
-            Labeled('Work Folder', self.folder),
-            Labeled('', self.confirm)
+            Labeled('Walltime (h)', walltime),
+            Labeled('Nodes', nNodes),
+            #Labeled('Filemanager',self.filemanager),
+            #Labeled('Work Folder', self.folder),
+            Labeled('', confirm)
         ])
         display(submitForm)
-        self.confirm.on_click(self.submit)
+
+        def submit(b):
+            b.disabled = True
+
+            try:
+                self.node = nNodes.value
+                self.wt = walltime.value
+
+                self.go()
+            except Exception as ex:
+                raise ex
+            finally:
+                b.disabled = False
+
+        confirm.on_click(submit)
+
+    def getlocalid(self):
+        return self.localID
 
 
 

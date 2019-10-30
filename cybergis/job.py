@@ -1,10 +1,7 @@
-import logging
 import uuid
 import os
 from .base import SBatchScript, BaseConnection, BaseJob
 from .utils import UtilsMixin
-
-logger = logging.getLogger("cybergis")
 
 
 class SlurmJob(UtilsMixin, BaseJob):
@@ -40,6 +37,7 @@ class SlurmJob(UtilsMixin, BaseJob):
                  sbatch_script, local_id=None,
                  name=None, description=None,
                  *args, **kwargs):
+        super().__init__()
 
         local_workspace_path = self._check_abs_path(local_workspace_path)
 
@@ -99,16 +97,16 @@ class SlurmJob(UtilsMixin, BaseJob):
 
     def _save_remote_id(self, msg, *args, **kwargs):
         if 'ERROR' in msg or 'WARN' in msg:
-            logger.error('Submit job {} error: {}'.format(self.local_id, msg))
+            self.logger.error('Submit job {} error: {}'.format(self.local_id, msg))
         self.remote_id = msg
-        logger.debug("Job local_id {} remote_id {}".format(self.local_id, self.remote_id))
+        self.logger.debug("Job local_id {} remote_id {}".format(self.local_id, self.remote_id))
         return self.remote_id
 
     def submit(self):
         # submit job to HPC scheduler
 
         self.remote_run_sbatch_folder_path = self.sbatch_script.remote_folder_path
-        logger.info("Submitting Job {} to queue".format(self.sbatch_script.file_name))
+        self.logger.info("Submitting Job {} to queue".format(self.sbatch_script.file_name))
         cmd = "cd {} && ./{}".format(self.remote_run_sbatch_folder_path,
                                      self.sbatch_script.file_name)
 
@@ -129,7 +127,7 @@ class SlurmJob(UtilsMixin, BaseJob):
 
     def prepare(self, *args, **kwargs):
 
-      raise NotImplementedError()
+        raise NotImplementedError()
 
     def job_status(self):
         # monitor job status

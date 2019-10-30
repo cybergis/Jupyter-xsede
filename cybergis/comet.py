@@ -1,4 +1,3 @@
-import logging
 import os
 
 from .base import SBatchScript
@@ -6,29 +5,23 @@ from .job import SlurmJob
 from .connection import SSHConnection
 
 
-logger = logging.getLogger("cybergis")
-
-
-class KeelingSBatchScript(SBatchScript):
+class CometSBatchScript(SBatchScript):
     pass
 
 
-class KeelingJob(SlurmJob):
+class CometJob(SlurmJob):
 
-    JOB_ID_PREFIX = "Keeling_"
-    backend = "keeling"
+    JOB_ID_PREFIX = "Comet_"
+    backend = "Comet"
     connection_class = SSHConnection
-    sbatch_script_class = KeelingSBatchScript
-
-    def prepare(self):
-        raise NotImplementedError()
+    sbatch_script_class = CometSBatchScript
 
     def _save_remote_id(self, msg, *args, **kwargs):
         if 'ERROR' in msg or 'WARN' in msg:
-            logger.error('Submit job {} error: {}'.format(self.local_id, msg))
+            self.logger.error('Submit job {} error: {}'.format(self.local_id, msg))
         remote_id = msg.split()[-1]
         self.remote_id = remote_id
-        logger.debug("Job local_id {} remote_id {}".format(self.local_id, self.remote_id))
+        self.logger.debug("Job local_id {} remote_id {}".format(self.local_id, self.remote_id))
         self.slurm_out_file_name = "slurm-{}.out".format(self.remote_id)
         self.remote_slurm_out_file_path = os.path.join(self.remote_run_sbatch_folder_path,
                                                        self.slurm_out_file_name)
@@ -57,5 +50,5 @@ class KeelingJob(SlurmJob):
 
             return out[2].split()[-2]
         except Exception as ex:
-            logger.warning("Job status error: ".format(ex.message))
+            self.logger.warning("Job status error: ".format(ex.message))
             return "ERROR"
