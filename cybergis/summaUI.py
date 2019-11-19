@@ -23,7 +23,7 @@ def Labeled(label, widget):
 
 
 def Title():
-    return (widgets.Box([widgets.HTML(value='<h1>Welcome to Summa General Case</h1>')],
+    return (widgets.Box([widgets.HTML(value='<h1>Submit Summa Model to HPC</h1>')],
         layout=widgets.Layout(display='flex',align_items='center',flex_flow='row')
         ))
 
