@@ -7,22 +7,23 @@ from .base import BaseScript
 class SummaKeelingSBatchScript(KeelingSBatchScript):
 
     name = "SummaKeelingSBatchScript"
+    file_name = "summa.sbatch"
+
     SCRIPT_TEMPLATE = \
 '''#!/bin/bash
 #SBATCH --job-name=$jobname
-#SBATCH --nodes=$nodes
+#SBATCH --ntasks=$ntasks
 #SBATCH --time=$walltime
-sbatch singularity exec $simg_path python $userscript_path'''
+    
+srun singularity exec $simg_path python $userscript_path
+'''
 
-    simg_path = "/data/keeling/a/zhiyul/images/pysumma_ensemble.img"
-    userscript_path = None
-
-    def __init__(self, walltime, nodes, jobname,
+    def __init__(self, walltime, ntasks, jobname,
                  userscript_path=None, *args, **kargs):
-        exe = None
-        super().__init__(walltime, nodes, jobname, exe, *args, **kargs)
+
+        super().__init__(walltime, ntasks, jobname, None, *args, **kargs)
         self.userscript_path = userscript_path
-        self.simg_path = self.simg_path
+        self.simg_path = "/data/keeling/a/zhiyul/images/pysumma_ensemble.img"
 
 
 class SummaCometSBatchScript(KeelingSBatchScript):
@@ -50,12 +51,7 @@ class SummaUserScript(BaseScript):
     name = "SummaUserScript"
     SCRIPT_TEMPLATE = \
 '''import pysumma as ps
-import pysumma.hydroshare_utils as utils
-from hs_restclient import HydroShare
-import shutil, os
-import subprocess
-from ipyleaflet import Map, GeoJSON
-import json
+import os
 os.chdir("$singularity_job_folder_path")  # /home/USER/Summa_XXXXXXX
 instance = '$model_folder_name' # aspen
 file_manager = os.path.join(os.getcwd(), instance, 'settings/$file_manager_name')
@@ -67,7 +63,7 @@ S.run('local', run_suffix='_test')
     singularity_job_folder_path = None
     model_folder_name = None
     file_manager_name = None
-    file_name = "run.py"
+    file_name = "runSumma.py"
 
     def __init__(self, singularity_job_folder_path, model_folder_name,
                  file_manager_name, *args, **kargs):

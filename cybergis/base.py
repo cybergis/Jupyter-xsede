@@ -57,10 +57,12 @@ class BaseScript(object):
                 script_path = v.generate_script(local_folder_path)
                 parameter_dict[k] = script_path
 
+        self.logger.debug(self.SCRIPT_TEMPLATE)
+        self.logger.debug(parameter_dict)
         script = Template(self.SCRIPT_TEMPLATE).substitute(
             **parameter_dict
         )
-        #self.logger.debug(script)
+        self.logger.debug(script)
         if os.path.isdir(local_folder_path):
             self._local_path = os.path.join(local_folder_path, self.file_name)
             with open(self._local_path, 'w') as f:
@@ -71,6 +73,9 @@ class BaseScript(object):
         else:
             return script
 
+    def update_template(self, **kw):
+        self.SCRIPT_TEMPLATE = Template(self.SCRIPT_TEMPLATE).substitute(kw)
+
 
 class BaseJob(object):
     def __init__(self):
@@ -80,27 +85,28 @@ class BaseJob(object):
 
 class SBatchScript(BaseScript):
     name = "SBatchScript"
-    file_name = "sbatch.sh"
+    file_name = "job.sbatch"
 
     SCRIPT_TEMPLATE = \
 '''#!/bin/bash
 #SBATCH --job-name=$jobname
-#SBATCH --nodes=$nodes
+#SBATCH --ntasks=$ntasks
 #SBATCH --time=$walltime
 
-sbatch $exe'''
+srun $exe'''
 
-    walltime = int(100)
-    nodes = int(1)
+    # see: https://slurm.schedmd.com/sbatch.html
+    walltime = "1:00:00"   # 1 hour
+    ntasks = int(1)  # number of task
     jobname = ""
     stdout = None  # Path to output
     stderr = None  # Path to err
     exe = ""
 
-    def __init__(self, walltime, nodes, jobname, exe, stdout=None, stderr=None):
+    def __init__(self, walltime_hour, ntasks, jobname, exe, stdout=None, stderr=None):
         super().__init__()
-        self.walltime = walltime
-        self.nodes = nodes
+        self.walltime = "{}:00:00".format(int(walltime_hour))
+        self.ntasks = ntasks
         self.jobname = jobname
         self.exe = exe
         self.stdout = stdout
