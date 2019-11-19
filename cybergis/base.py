@@ -96,7 +96,7 @@ class SBatchScript(BaseScript):
 srun $exe'''
 
     # see: https://slurm.schedmd.com/sbatch.html
-    walltime = "1:00:00"   # 1 hour
+    walltime = "01:00:00"   # 1 hour
     ntasks = int(1)  # number of task
     jobname = ""
     stdout = None  # Path to output
@@ -105,7 +105,7 @@ srun $exe'''
 
     def __init__(self, walltime_hour, ntasks, jobname, exe, stdout=None, stderr=None):
         super().__init__()
-        self.walltime = "{}:00:00".format(int(walltime_hour))
+        self.walltime = "{:02d}:00:00".format(int(walltime_hour))
         self.ntasks = ntasks
         self.jobname = jobname
         self.exe = exe

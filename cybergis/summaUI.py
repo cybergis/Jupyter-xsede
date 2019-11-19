@@ -76,7 +76,7 @@ class summaUI():
     machine = ""
     model_source_folder_path = "" ## the path to the summa testcase folder
     file_manager_path = "" ## the path to the filemanager folder
-    jobname = "test" ## the name of the job
+    jobname = "summa" ## the name of the job
     wt = 10
     node = 1
     keeling_con = None
@@ -139,7 +139,7 @@ class summaUI():
             sjob.go()
             self.job_local_id = sjob.local_id
             self.job_remote_id = sjob.remote_id
-            for i in range(300):
+            for i in range(600):
                 time.sleep(3)
                 status = sjob.job_status()
                 if status == "ERROR":
@@ -159,7 +159,7 @@ class summaUI():
             sjob.go()
             self.job_local_id = sjob.local_id
             self.job_remote_id = sjob.remote_id
-            for i in range(300):
+            for i in range(600):
                 time.sleep(3)
                 status = sjob.job_status()
                 if status == "ERROR":
@@ -178,7 +178,7 @@ class summaUI():
         nNodes=widgets.IntSlider(
             value=1,
             min=1,
-            max=10,
+            max=16,
             step=1,
             continuous_update=False,
             orientation='horizontal',
@@ -189,7 +189,7 @@ class summaUI():
         walltime=widgets.FloatSlider(
             value=1,
             min=1.0,
-            max=10.0,
+            max=8.0,
             step=1.0,
             continuous_update=False,
             orientation='horizontal',

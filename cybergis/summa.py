@@ -14,50 +14,107 @@ class SummaKeelingSBatchScript(KeelingSBatchScript):
 #SBATCH --job-name=$jobname
 #SBATCH --ntasks=$ntasks
 #SBATCH --time=$walltime
-    
-srun singularity exec $simg_path python $userscript_path
+
+srun --mpi=pmi2 singularity exec \
+   $simg_path \
+   python $userscript_path 
 '''
+    simg_path = "/data/keeling/a/cigi-gisolve/simages/pysumma_ensemble.img"
 
     def __init__(self, walltime, ntasks, jobname,
                  userscript_path=None, *args, **kargs):
 
         super().__init__(walltime, ntasks, jobname, None, *args, **kargs)
         self.userscript_path = userscript_path
-        self.simg_path = "/data/keeling/a/zhiyul/images/pysumma_ensemble.img"
+        self.simg_path = self.simg_path
 
 
-class SummaCometSBatchScript(KeelingSBatchScript):
+class SummaCometSBatchScript(SummaKeelingSBatchScript):
 
     name = "SummaCometSBatchScript"
+
     SCRIPT_TEMPLATE = \
 '''#!/bin/bash
 #SBATCH --job-name=$jobname
-#SBATCH --nodes=$nodes
+#SBATCH --ntasks=$ntasks
+#SBATCH --time=$walltime
+
 module load singularity/2.6.1
-sbatch -t $walltime singularity exec $simg_path python $userscript_path'''
-
+srun --mpi=pmi2 singularity exec \
+   $simg_path \
+   python $userscript_path 
+'''
     simg_path = "/home/cybergis/SUMMA_IMAGE/pysumma_ensemble.img"
-    userscript_path = None
-
-    def __init__(self, walltime, nodes, jobname,
-                 userscript_path=None, *args, **kargs):
-        exe = None
-        super().__init__(walltime, nodes, jobname, exe, *args, **kargs)
-        self.userscript_path = userscript_path
-        self.simg_path = self.simg_path
 
 
 class SummaUserScript(BaseScript):
     name = "SummaUserScript"
+
     SCRIPT_TEMPLATE = \
-'''import pysumma as ps
+'''
+import json
 import os
-os.chdir("$singularity_job_folder_path")  # /home/USER/Summa_XXXXXXX
-instance = '$model_folder_name' # aspen
-file_manager = os.path.join(os.getcwd(), instance, 'settings/$file_manager_name')
+import numpy as np
+from mpi4py import MPI
+import pysumma as ps
+
+comm = MPI.COMM_WORLD
+rank = comm.Get_rank()
+size = comm.Get_size()
+hostname = MPI.Get_processor_name()
+
+print("{}/{}: {}".format(rank, size, hostname))
+
+job_folder_path = "$singularity_job_folder_path"
+instance = "$model_folder_name"
+instance_path = os.path.join(job_folder_path, instance)
+json_path = os.path.join(job_folder_path, instance, "summa_options.json")
+
+workers_folder_name = "workers"
+workers_folder_path = os.path.join(job_folder_path, workers_folder_name)
+
+if rank == 0:
+   os.system("mkdir -p {}".format(workers_folder_path))
+comm.Barrier()
+
+try:
+    with open(json_path) as f:
+        options_dict = json.load(f)
+except:
+    options_dict = {}
+options_list = [(k,v) for k,v in options_dict.items()]
+options_list.sort()
+groups = np.array_split(options_list, size)
+config_pair_list = groups[rank].tolist()
+
+# copy instance folder to workers folder
+new_instance_path = os.path.join(workers_folder_path, instance + "_{}".format(rank))
+os.system("cp -rf {} {}".format(instance_path, new_instance_path))
+
+# file manager path
+file_manager = os.path.join(new_instance_path, 'settings/summa_fileManager_riparianAspenSimpleResistance.txt')
+print(file_manager)
 executable = "/code/bin/summa.exe"
-S = ps.Simulation(executable, file_manager)
-S.run('local', run_suffix='_test')
+
+s = ps.Simulation(executable, file_manager)
+# fix setting_path to point to this worker
+s.manager["settings_path"].value = s.manager["settings_path"].value.replace(instance_path, new_instance_path) 
+s._write_configuration()
+
+if len(config_pair_list) == 0:
+    config_pair_list = [("_test", {})]
+for config_pair in config_pair_list:
+
+    name = config_pair[0]
+    config = config_pair[1]
+    print(name)
+    print(config)
+    print(type(config))
+    
+    s.initialize()
+    s.apply_config(config)
+    s.run('local', run_suffix=name)
+
 '''
 
     singularity_job_folder_path = None
