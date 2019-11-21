@@ -107,8 +107,8 @@ class SlurmJob(UtilsMixin, BaseJob):
 
         self.remote_run_sbatch_folder_path = self.sbatch_script.remote_folder_path
         self.logger.info("Submitting Job {} to queue".format(self.sbatch_script.file_name))
-        cmd = "cd {} && ./{}".format(self.remote_run_sbatch_folder_path,
-                                     self.sbatch_script.file_name)
+        cmd = "cd {} && sbatch {}".format(self.remote_run_sbatch_folder_path,
+                                          self.sbatch_script.file_name)
 
         out = self.connection.run_command(cmd)
         remote_id = self._save_remote_id(out)
