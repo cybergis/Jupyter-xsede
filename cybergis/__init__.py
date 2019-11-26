@@ -6,3 +6,4 @@ from .summa import *
 from .utils import *
 from .job import *
 from .summaUI import *
+from .floret import *
