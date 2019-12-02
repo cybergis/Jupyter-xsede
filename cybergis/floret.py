@@ -50,7 +50,7 @@ class Floret(object):
         return self
 
     def addGeoJson(self, name, path):
-        new_path = path+'.floret'
+        new_path = path+'.floret.js'
         self.extraheader += '<script src="%s"></script>\n'%new_path
         var_name = path.split('/')[-1].split('.')[0].replace('-','_')
         self.layers.append(('GeoJson', name, var_name, self.getGeoJsonBbox(path)))
