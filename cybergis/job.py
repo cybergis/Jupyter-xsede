@@ -112,6 +112,7 @@ class SlurmJob(UtilsMixin, BaseJob):
 
         out = self.connection.run_command(cmd)
         remote_id = self._save_remote_id(out)
+        self.logger.info("Remote Job ID assigned: {}".format(remote_id))
         self.slurm_out_file_name = "slurm-{}.out".format(remote_id)
         self.remote_slurm_out_file_path = os.path.join(self.remote_run_sbatch_folder_path,
                                                        self.slurm_out_file_name)
