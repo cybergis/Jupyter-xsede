@@ -39,7 +39,7 @@ class SummaCometSBatchScript(SummaKeelingSBatchScript):
 #SBATCH --ntasks=$ntasks
 #SBATCH --time=$walltime
 
-module load singularity/2.6.1
+module load singularity
 srun --mpi=pmi2 singularity exec \
    $simg_path \
    python $userscript_path 
@@ -105,15 +105,21 @@ if len(config_pair_list) == 0:
     config_pair_list = [("_test", {})]
 for config_pair in config_pair_list:
 
-    name = config_pair[0]
-    config = config_pair[1]
-    print(name)
-    print(config)
-    print(type(config))
-    
-    s.initialize()
-    s.apply_config(config)
-    s.run('local', run_suffix=name)
+    try:
+        name = config_pair[0]
+        config = config_pair[1]
+        print(name)
+        print(config)
+        print(type(config))
+
+        s.initialize()
+        s.apply_config(config)
+        s.run('local', run_suffix=name)
+    except Exception as ex:
+        print("Error in ({}/{}) {}: {}".format(rank, size, name, str(config)))
+        print(ex)
+
+comm.Barrier()
 
 '''
 
