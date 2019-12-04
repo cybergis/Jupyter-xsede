@@ -90,6 +90,8 @@ config_pair_list = groups[rank].tolist()
 # copy instance folder to workers folder
 new_instance_path = os.path.join(workers_folder_path, instance + "_{}".format(rank))
 os.system("cp -rf {} {}".format(instance_path, new_instance_path))
+# sync: make every rank finishes copying
+comm.Barrier()
 
 # file manager path
 file_manager = os.path.join(new_instance_path, 'settings/summa_fileManager_riparianAspenSimpleResistance.txt')
@@ -99,7 +101,12 @@ executable = "/code/bin/summa.exe"
 s = ps.Simulation(executable, file_manager)
 # fix setting_path to point to this worker
 s.manager["settings_path"].value = s.manager["settings_path"].value.replace(instance_path, new_instance_path) 
-s._write_configuration()
+
+# Dont not use this as it rewrites every files including those in original folder -- Race condition
+#s._write_configuration()
+
+# Instead, only rewrite filemanager
+s.manager.write()
 
 if len(config_pair_list) == 0:
     config_pair_list = [("_test", {})]
@@ -111,15 +118,17 @@ for config_pair in config_pair_list:
         print(name)
         print(config)
         print(type(config))
-
-        s.initialize()
-        s.apply_config(config)
-        s.run('local', run_suffix=name)
+        
+        # create a new Simulation obj each time to avoid potential overwriting issue or race condition
+        ss = ps.Simulation(executable, file_manager)
+        ss.apply_config(config)
+        ss.run('local', run_suffix=name)
     except Exception as ex:
         print("Error in ({}/{}) {}: {}".format(rank, size, name, str(config)))
         print(ex)
 
 comm.Barrier()
+print("Done in {}/{} ".format(rank, size))
 
 '''
 
