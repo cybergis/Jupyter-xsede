@@ -4,8 +4,6 @@ from IPython.display import IFrame
 from xml.dom import minidom
 import json
 import numpy as np
-import cybergis
-import os
 
 class Floret(object):
     '''CyberGIS Mapping tool based on Leaflet'''
@@ -52,7 +50,7 @@ class Floret(object):
         return self
 
     def addGeoJson(self, name, path):
-        new_path = path+'.floret.js'
+        new_path = path+'.floret'
         self.extraheader += '<script src="%s"></script>\n'%new_path
         var_name = path.split('/')[-1].split('.')[0].replace('-','_')
         self.layers.append(('GeoJson', name, var_name, self.getGeoJsonBbox(path)))
@@ -62,7 +60,7 @@ class Floret(object):
 
     def __fitBounds(self):
         if len(self.layers) > 0:
-            bounds=list(zip(*[_[-1] for _ in self.layers]))
+            bounds=zip(*[_[-1] for _ in self.layers])
             self.bottom=min(bounds[0])
             self.left=min(bounds[1])
             self.top=max(bounds[2])
@@ -77,11 +75,7 @@ class Floret(object):
             return "L.geoJSON(%s)"%(layer[2].split('.')[0])
 
     def __render(self):
-        base = cybergis.__file__
-        base_path = os.path.dirname(base)
-        template_rel_path = "templates/leaflet_template.html"
-        file_path = os.path.join(base_path,template_rel_path)
-        with open(file_path) as input:
+        with open('/opt/cybergis/leaflet_template.html') as input:
             temp=Template(input.read())
 
         self.__fitBounds()

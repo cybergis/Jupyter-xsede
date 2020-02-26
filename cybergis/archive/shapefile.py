@@ -367,7 +367,7 @@ class Reader:
         for (name, typ, size, deci), value in zip(self.fields, recordContents):
             if name == 'DeletionFlag':
                 continue
-            elif not b'''value.strip().strip('*')''':
+            elif not value.strip().strip('*'):
                 record.append(value)
                 continue
             elif typ == "N":
@@ -958,7 +958,7 @@ def point_in_poly(x,y,poly):
     n = len(poly)
     inside = False
     p1x,p1y = poly[0]
-    for i in range(1,n):
+    for i in xrange(1,n):
         p2x,p2y = poly[i]
         if y > min(p1y,p2y) and y <= max(p1y,p2y) and x <= max(p1x,p2x):
             if p1y != p2y:
@@ -1158,7 +1158,7 @@ class Editor(Writer):
         if hasattr(self,'root'):
             return self.treeQuery(x,y,self.root)
         try:
-            return list(map(lambda i:self[i].does_contain_points(x,y), range(self.lens))).index(True)
+            return map(lambda i:self[i].does_contain_points(x,y), range(self.lens)).index(True)
         except ValueError:
             return -1
     
