@@ -87,6 +87,8 @@ setup(
     #package_data={
     #    'cybot': ['qsub.template'],
     #},
+    include_package_data=True,
+    package_data={'cybergis': ['templates/*.html']},
 
     # Although 'package_data' is the preferred approach, in some case you may
     # need to place data files outside of your packages. See:

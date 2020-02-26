@@ -4,6 +4,8 @@ from IPython.display import IFrame
 from xml.dom import minidom
 import json
 import numpy as np
+import cybergis
+import os
 
 class Floret(object):
     '''CyberGIS Mapping tool based on Leaflet'''
@@ -75,7 +77,11 @@ class Floret(object):
             return "L.geoJSON(%s)"%(layer[2].split('.')[0])
 
     def __render(self):
-        with open('/opt/cybergis/leaflet_template.html') as input:
+        base = cybergis.__file__
+        base_path = os.path.dirname(base)
+        template_rel_path = "templates/leaflet_template.html"
+        file_path = os.path.join(base_path,template_rel_path)
+        with open(file_path) as input:
             temp=Template(input.read())
 
         self.__fitBounds()
