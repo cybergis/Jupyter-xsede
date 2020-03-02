@@ -168,7 +168,7 @@ class SSHConnection(UtilsMixin, BaseConnection):
         self.logger.debug("out: " + str(out))
         self.logger.debug("err: " + str(err))
         if len(err) > 0:
-            self.logger.warning("run_command {} got error {}".format(command, ';'.join(err)))
+            self.logger.debug("run_command {} got error {}".format(command, ';'.join(err)))
             if raise_on_error:
                 raise Exception(message=';'.join(err))
         if len(out) == 0:
