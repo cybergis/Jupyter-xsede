@@ -257,19 +257,23 @@ class SummaCometJob(SummaKeelingJob):
             gateway_username = "anonymous_user"
 
         # report gateway_user metric to XSEDE
+        xsede_key_path = os.getenv('XSEDE_KEY_PATH', "")
+        if len(str(xsede_key_path)) == 0:
+            return
 
-        cmd_template = 'curl -XPOST --data @/home/cybergis/.xsede-gateway-attributes-apikey-cjw  \
+        cmd_template = 'curl -XPOST --data @$xsede_key_path  \
     --data-urlencode "gatewayuser=$gatewayuser"  \
     --data-urlencode "xsederesourcename=comet.sdsc.xsede"  \
     --data-urlencode "jobid=$jobid"  \
     --data-urlencode "submittime=$submittime" \
     https://xsede-xdcdb-api.xsede.org/gateway/v2/job_attributes'
 
-        parameter_kw = {"gatewayuser": gateway_username,
+        parameter_kw = {"xsede_key_path": xsede_key_path,
+                        "gatewayuser": gateway_username,
                         "jobid": self.remote_id,
                         "submittime": datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")}
 
         cmd = Template(cmd_template).substitute(parameter_kw)
-        logger.info(cmd)
+        logger.debug(cmd)
+        logger.info("Metric sent to XSEDE: {gatewayuser}, {jobid}".format(gateway_username, self.remote_id))
         out = self.connection.run_command(cmd)
-        pass
