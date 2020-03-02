@@ -275,5 +275,6 @@ class SummaCometJob(SummaKeelingJob):
 
         cmd = Template(cmd_template).substitute(parameter_kw)
         logger.debug(cmd)
-        logger.info("Metric sent to XSEDE: {gatewayuser}, {jobid}".format(gatewayuser=gateway_username, jobid=self.remote_id))
+        logger.info("Metric sent to XSEDE: {gatewayuser}, {jobid}".format(gatewayuser=gateway_username,
+                                                                          jobid=self.remote_id))
         out = self.connection.run_command(cmd)
