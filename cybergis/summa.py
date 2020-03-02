@@ -1,7 +1,13 @@
 import os
 import time
+import datetime
+from string import Template
+
 from .keeling import KeelingJob, KeelingSBatchScript
 from .base import BaseScript
+from .utils import get_logger
+
+logger = get_logger()
 
 
 class SummaKeelingSBatchScript(KeelingSBatchScript):
@@ -234,6 +240,7 @@ class SummaKeelingJob(KeelingJob):
         self.prepare()
         self.upload()
         self.submit()
+        self.post_submission()
 
     def download(self):
         self.connection.download(os.path.join(self.remote_model_folder_path, "output"),
@@ -243,3 +250,26 @@ class SummaKeelingJob(KeelingJob):
 
 class SummaCometJob(SummaKeelingJob):
     sbatch_script_class = SummaCometSBatchScript
+
+    def post_submission(self):
+        gateway_username = os.getenv('JUPYTERHUB_USER')
+        if gateway_username is None:
+            gateway_username = "anonymous_user"
+
+        # report gateway_user metric to XSEDE
+
+        cmd_template = 'curl -XPOST --data @/home/cybergis/.xsede-gateway-attributes-apikey-cjw  \
+    --data-urlencode "gatewayuser=$gatewayuser"  \
+    --data-urlencode "xsederesourcename=comet.sdsc.xsede"  \
+    --data-urlencode "jobid=$jobid"  \
+    --data-urlencode "submittime=$submittime" \
+    https://xsede-xdcdb-api.xsede.org/gateway/v2/job_attributes'
+
+        parameter_kw = {"gatewayuser": gateway_username,
+                        "jobid": self.remote_id,
+                        "submittime": datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")}
+
+        cmd = Template(cmd_template).substitute(parameter_kw)
+        logger.info(cmd)
+        out = self.connection.run_command(cmd)
+        pass

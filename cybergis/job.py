@@ -117,6 +117,9 @@ class SlurmJob(UtilsMixin, BaseJob):
         self.remote_slurm_out_file_path = os.path.join(self.remote_run_sbatch_folder_path,
                                                        self.slurm_out_file_name)
 
+    def post_submission(self):
+        pass
+
     def job_status(self):
         # monitor job status
         raise NotImplementedError()
