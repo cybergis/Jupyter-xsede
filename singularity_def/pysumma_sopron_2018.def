@@ -1,0 +1,58 @@
+# summa (sopron 2018): f18270c2ce5f2b5004c2b3e1799bd0969612bb68
+# pysumma: 2be563040c6ba8f767d41175cf36fa2ad0ff981b
+
+Bootstrap: docker
+From: ubuntu:xenial
+IncludeCmd: yes
+%setup
+    mkdir -p /code
+    cp -r . $SINGULARITY_ROOTFS/code/
+%post
+    # Install only the packages that are needed
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+    software-properties-common python-software-properties \
+    ca-certificates \
+    git \
+    make \
+    libnetcdff-dev \
+    liblapack-dev \
+    vim \
+    wget \
+    build-essential \
+    nano
+
+    # Install gfortran-6
+    add-apt-repository ppa:ubuntu-toolchain-r/test -y \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends gfortran-6 \
+    && apt-get clean
+
+    # Fetch tags and build summa
+    export F_MASTER=/code
+    export FC=gfortran
+    export FC_EXE=gfortran
+    export FC_ENV=gfortran-6-docker
+    export isOpenMP=yes
+    cd /code
+    git fetch --tags && make -C build/ -f Makefile
+
+    apt-get update &&\
+    wget --quiet https://repo.continuum.io/archive/Anaconda3-2019.07-Linux-x86_64.sh -O ~/anaconda.sh && \
+    /bin/bash ~/anaconda.sh -b -p /opt/conda && \
+    rm ~/anaconda.sh
+    #Install Python packages for pySUMMA
+    export PATH=/opt/conda/bin:$PATH
+    conda config --add channels conda-forge
+    pip install  git+https://github.com/UW-Hydro/pysumma.git@2be563040c6ba8f767d41175cf36fa2ad0ff981b 
+    conda install mpi4py
+
+%environment
+    export PATH=/opt/conda/bin:$PATH
+    export F_MASTER=/code
+    export FC=gfortran
+    export FC_EXE=gfortran
+    export FC_ENV=gfortran-6-docker
+%runscript
+    exec python $@
+
