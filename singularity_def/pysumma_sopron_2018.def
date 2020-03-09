@@ -1,5 +1,5 @@
 # summa (sopron 2018): f18270c2ce5f2b5004c2b3e1799bd0969612bb68
-# pysumma: 2be563040c6ba8f767d41175cf36fa2ad0ff981b
+# pysumma: 28e09a77da5233e9e9d39bfb155f479b38f57f8e
 
 Bootstrap: docker
 From: ubuntu:xenial
@@ -44,7 +44,7 @@ IncludeCmd: yes
     #Install Python packages for pySUMMA
     export PATH=/opt/conda/bin:$PATH
     conda config --add channels conda-forge
-    pip install  git+https://github.com/UW-Hydro/pysumma.git@2be563040c6ba8f767d41175cf36fa2ad0ff981b 
+    pip install  git+https://github.com/UW-Hydro/pysumma.git@28e09a77da5233e9e9d39bfb155f479b38f57f8e
     conda install mpi4py
 
 %environment
