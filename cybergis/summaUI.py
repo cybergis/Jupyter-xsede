@@ -5,6 +5,7 @@ import ipywidgets as widgets
 from IPython.display import display
 from tkinter import Tk, filedialog
 import traitlets
+import json
 
 from .base import *
 from .connection import *
@@ -77,7 +78,7 @@ class SelectFolderButton(widgets.Button):
 
 class summaUI():
     username = ""
-    machine = ""
+    machine = "keeling"
     model_source_folder_path = "" ## the path to the summa testcase folder
     file_manager_path = "" ## the path to the filemanager folder
     jobname = "summa" ## the name of the job
@@ -101,17 +102,34 @@ class printnumber():
     
 
 class HPCUI(summaUI, printnumber):
-    def __init__(self, model_name, model_folder_path, filemanager_path, workspace_path,
+    def __init__(self, para_json_str,
                  username="cigi-gisolve",
-                 machine="keeling",
                  private_key_path="/opt/cybergis/.gisolve.key",
                  user_pw=None):
-        self.model_name=model_name
+        
+        para_json = json.loads(para_json_str)
         self.username=username
-        self.machine=machine
-        self.file_manager_path = filemanager_path
-        self.model_source_folder_path = model_folder_path
-        self.workspace_path = workspace_path
+        try:
+            self.model_name=para_json['model']
+        except:
+            pass
+        try:
+            self.machine=para_json['machine']
+        except:
+            pass
+        try:
+            self.file_manager_path = para_json['file_manger_rel_path']
+        except:
+            pass
+        try:
+            self.model_source_folder_path = para_json['model_source_folder_path']
+        except:
+            pass
+        try:
+            self.workspace_path = para_json['workspace_dir']
+        except:
+            pass
+        
         self.private_key_path = private_key_path
         self.user_pw = user_pw
 
