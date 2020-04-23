@@ -153,16 +153,16 @@ class HPCUI(summaUI, printnumber):
                     self.keeling_con = SSHConnection("comet.sdsc.edu",
                                 user_name=self.username,
                                 user_pw=self.user_pw)
-            else:
-                print("Not implemented yet")
+            #else:
+            #    print("Not implemented yet")
 
 
             self.__submitUI()
         
         if (self.model_name.lower()=="print"):
             self.__submitprint()
-        else:
-            print("Not implemented yet")
+        #else:
+        #    print("Not implemented yet")
 
     def go(self):
 
