@@ -100,6 +100,10 @@ class summaUI():
 class printnumber():
     number = ""
     
+         
+         
+    
+    
 
 class HPCUI(summaUI, printnumber):
     def __init__(self, para_json_str,
@@ -311,4 +315,65 @@ class HPCUI(summaUI, printnumber):
         print("I am doing good")
             
         
-
+class HPCSUMMA(HPCUI):
+    def __init__(self, para_json_str,
+                 username="cigi-gisolve",
+                 private_key_path="/opt/cybergis/.gisolve.key",
+                 user_pw=None):
+        
+        para_json = json.loads(para_json_str)
+        self.username=username
+        try:
+            self.model_name=para_json['model']
+        except:
+            pass
+        try:
+            self.machine=para_json['machine']
+        except:
+            pass
+        try:
+            self.file_manager_path = para_json['file_manger_rel_path']
+        except:
+            pass
+        try:
+            self.model_source_folder_path = para_json['model_source_folder_path']
+        except:
+            pass
+        try:
+            self.workspace_path = para_json['workspace_dir']
+        except:
+            pass
+        
+        self.private_key_path = private_key_path
+        self.user_pw = user_pw    
+        
+    def run(self):
+        if (self.model_name.lower()=="summa"):
+            if (self.machine=="keeling"):
+                if (self.username == "cigi-gisolve"):
+                    self.keeling_con = SSHConnection("keeling.earth.illinois.edu",
+                                user_name="cigi-gisolve",
+                                key_path=self.private_key_path)
+                else:
+                    self.keeling_con = SSHConnection("keeling.earth.illinois.edu",
+                                user_name=self.username,
+                                user_pw=self.user_pw)
+            elif self.machine.lower()=="comet":
+                if self.username=="cigi-gisolve":
+                    self.keeling_con = SSHConnection("comet.sdsc.edu",
+                                user_name="cybergis",
+                                key_path=self.private_key_path)
+                else:
+                    self.keeling_con = SSHConnection("comet.sdsc.edu",
+                                user_name=self.username,
+                                user_pw=self.user_pw)
+                    
+        try:
+            self.node = para_json['node']
+        except:
+            pass
+        try:
+            self.wt = para_json['walltime']
+        except:
+            pass
+        self.go()   
