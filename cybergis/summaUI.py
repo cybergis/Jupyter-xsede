@@ -76,7 +76,7 @@ class SelectFolderButton(widgets.Button):
         b.icon = "check-square-o"
         b.style.button_color = "lightgreen"
 
-class summaUI():
+class summa_base():
     username = ""
     machine = "keeling"
     model_source_folder_path = "" ## the path to the summa testcase folder
@@ -105,7 +105,7 @@ class printnumber():
     
     
 
-class HPCUI(summaUI, printnumber):
+class HPCUI(summa_base, printnumber):
     def __init__(self, para_json_str,
                  username="cigi-gisolve",
                  private_key_path="/opt/cybergis/.gisolve.key",
@@ -313,7 +313,25 @@ class HPCUI(summaUI, printnumber):
         return self.localID
     def printme(self):
         print("I am doing good")
-            
+
+        
+class summaUI(HPCUI):
+    def __init__(self, model_folder_path, filemanager_path, workspace_path,
+                 username="cigi-gisolve",
+                 machine="keeling",
+                 private_key_path="/opt/cybergis/.gisolve.key",
+                 user_pw=None):
+        self.username=username
+        self.machine=machine
+        self.file_manager_path = filemanager_path
+        self.model_source_folder_path = model_folder_path
+        self.workspace_path = workspace_path
+        self.private_key_path = private_key_path
+        self.user_pw = user_pw
+        self.model_name = "summa"
+        
+    def runSumma(self):
+        self.run()
         
 class HPCSUMMA(HPCUI):
     def __init__(self, para_json_str,
@@ -377,3 +395,5 @@ class HPCSUMMA(HPCUI):
         except:
             pass
         self.go()   
+
+        
