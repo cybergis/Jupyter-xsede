@@ -361,6 +361,14 @@ class HPCSUMMA(HPCUI):
             self.workspace_path = para_json['workspace_dir']
         except:
             pass
+        try:
+            self.node = para_json['node']
+        except:
+            pass
+        try:
+            self.wt = para_json['walltime']
+        except:
+            pass
         
         self.private_key_path = private_key_path
         self.user_pw = user_pw    
