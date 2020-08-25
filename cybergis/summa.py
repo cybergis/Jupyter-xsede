@@ -107,6 +107,7 @@ executable = "/code/bin/summa.exe"
 s = ps.Simulation(executable, file_manager)
 # fix setting_path to point to this worker
 s.manager["settingsPath"].value = s.manager["settingsPath"].value.replace(instance_path, new_instance_path) 
+s.manager["outputPath"].value = os.path.join(instance_path, "output")
 
 # Dont not use this as it rewrites every files including those in original folder -- Race condition
 #s._write_configuration()
