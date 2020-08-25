@@ -126,7 +126,8 @@ for config_pair in config_pair_list:
         print(type(config))
         
         # create a new Simulation obj each time to avoid potential overwriting issue or race condition
-        ss = ps.Simulation(executable, file_manager)
+        ss = ps.Simulation(executable, file_manager, False)
+        ss.initialize()
         ss.apply_config(config)
         #ss.manager["settingsPath"].value = os.path.join(s.manager["settingsPath"].value, '.pysumma', name)
         ss.run('local', run_suffix=name)
