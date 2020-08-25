@@ -25,7 +25,7 @@ srun --mpi=pmi2 singularity exec \
    $simg_path \
    python $userscript_path 
 '''
-    simg_path = "/data/keeling/a/cigi-gisolve/simages/pysumma_ensemble.img"
+    simg_path = "/data/keeling/a/cigi-gisolve/simages/pysumma_ensemble_summa3.img"
 
     def __init__(self, walltime, ntasks, jobname,
                  userscript_path=None, *args, **kargs):
@@ -50,7 +50,7 @@ srun --mpi=pmi2 singularity exec \
    $simg_path \
    python $userscript_path 
 '''
-    simg_path = "/home/cybergis/SUMMA_IMAGE/pysumma_ensemble.img"
+    simg_path = "/home/cybergis/SUMMA_IMAGE/pysumma_ensemble.img_summa3"
 
 
 class SummaUserScript(BaseScript):
@@ -106,7 +106,7 @@ executable = "/code/bin/summa.exe"
 
 s = ps.Simulation(executable, file_manager)
 # fix setting_path to point to this worker
-s.manager["settings_path"].value = s.manager["settings_path"].value.replace(instance_path, new_instance_path) 
+s.manager["settingsPath"].value = s.manager["settingsPath"].value.replace(instance_path, new_instance_path) 
 
 # Dont not use this as it rewrites every files including those in original folder -- Race condition
 #s._write_configuration()
