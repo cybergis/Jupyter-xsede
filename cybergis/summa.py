@@ -25,7 +25,7 @@ srun --mpi=pmi2 singularity exec \
    $simg_path \
    python $userscript_path 
 '''
-    simg_path = "/data/keeling/a/cigi-gisolve/simages/pysumma_ensemble_summa3.img"
+    simg_path = "/data/keeling/a/cigi-gisolve/simages/pysumma_ensemble.img_summa3"
 
     def __init__(self, walltime, ntasks, jobname,
                  userscript_path=None, *args, **kargs):
