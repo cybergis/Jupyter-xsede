@@ -129,7 +129,7 @@ class SummaSupervisorToHPC(summa_base):
                     user_pw=self.user_pw,
                 )
         elif self.machine.lower() == "comet":
-            if self.username == "cigi-gisolve":
+            if self.username == "cybergis":
                 self.connection = SSHConnection(
                     "comet.sdsc.edu",
                     user_name="cybergis",
