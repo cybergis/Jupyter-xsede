@@ -253,7 +253,7 @@ class SummaKeelingSBatchScript(KeelingSBatchScript):
 
     def __init__(self, walltime, node, jobname, userscript_path, *args, **kargs):
         userscript_path=userscript_path+"/run.py"
-        _exec = Template(self.EXEC).substitute(simg="/data/keeling/a/zhiyul/images/pysumma_ensemble.img", userscript=userscript_path)
+        _exec = Template(self.EXEC).substitute(simg="/data/keeling/a/zhiyul/images/pysumma_ensemble.img_summa3", userscript=userscript_path)
         super().__init__(walltime, node, jobname, _exec, *args, **kargs)
 
 
