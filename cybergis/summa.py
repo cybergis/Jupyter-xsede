@@ -127,6 +127,7 @@ for config_pair in config_pair_list:
         
         # create a new Simulation obj each time to avoid potential overwriting issue or race condition
         ss = ps.Simulation(executable, file_manager)
+        ss.initialize()
         ss.apply_config(config)
         ss.run('local', run_suffix=name)
     except Exception as ex:
