@@ -11,47 +11,130 @@ logger = get_logger()
 
 
 class WRFHydroKeelingSBatchScript(KeelingSBatchScript):
+    '''
+    Current implementation follows the "Host MPI" or "Hybrid" model
+    where Host MPI installation (outside singularity) calls MPI installation inside singularity
+    to execute the MPI Program inside singularity
+    eg: mpirun -np 2 singularity exec PATH_TO_MPI_PROGRAM_INSIDE_SINGULARITY
+    See: https://sylabs.io/guides/3.3/user-guide/mpi.html
+
+    The MPI_PROGRAM here is a Python script (User Script) that makes use of wrf_hydro_py to invoke wrf_hydro.exe binary.
+    Ideally, we want the Python script (User Script) to be "MPI-Aware" using MPI4Py, like only
+    one python process (Rank0) to do the copyings of config files. Then, each python process launches only one wrf_hydro.exe process
+    (since there are NP Python processes launched by MPI so we would have NP wrf_hydro.exe processes launched,
+    which are expected to run in parallel)
+
+    However, things do not work as expected . If the Python script (User Script) is MPI-Aware, it would use the established MPI environment.
+    So when this Python script launches wrf_hydro.exe process. the wrf_hydro.exe CANNOT use the same established MPI environment again.
+
+    As a trade-off, current implementation of Python script (User Script) is Not MPI-Aware, and the logics that loop through all model runs (Jobs) is
+    in the Sbatch Script.
+
+    ------------
+
+    Each model run ("Job" object in wrf_hydro_py) has its own folder named "jobXXXX"
+    this Sbatch Script gets job_num by counting "jobXXXX" folders and loops through job indices [0 to job_num-1]
+    the job_index is passed into the Python Script (User Script), which parses 'simulation.pkl' file and extracts the Job
+    object by job_index. The Jobs will run in the same order in which they were stored.
+    '''
 
     name = "WRFHydroKeelingSBatchScript"
     file_name = "wrfhydro.sbatch"
 
     SCRIPT_TEMPLATE = \
 '''#!/bin/bash
+
 #SBATCH --job-name=$jobname
 #SBATCH --ntasks=$ntasks
 #SBATCH --time=$walltime
 
-srun --mpi=pmi2 singularity exec \
-   /data/keeling/a/cigi-gisolve/simages/wrfhydro.img \
-   $userscript_path 
+## count number of folders job_xxxx
+## $$ is to escape single dollar sign, which are used as bash variables later
+## See: https://docs.python.org/2.4/lib/node109.html
+job_num=$$(ls -dp /data/keeling/a/cigi-gisolve/$job_folder_name/run/job* | wc -l)
+
+## loop through 0 -- job_num-1
+for (( job_index=0; job_index<$$job_num; job_index++ ))
+do
+  echo $$job_index
+  srun --mpi=pmi2 singularity exec -B /data/keeling/a/cigi-gisolve/$job_folder_name:/workspace /data/keeling/a/cigi-gisolve/simages/wrfhydro_test3.img python /workspace/run_mpi_call_singularity.py $$job_index
+done
+
+#singularity exec -B /data/keeling/a/cigi-gisolve/$job_folder_name:/workspace /data/keeling/a/cigi-gisolve/simages/wrfhydro_test3.img python /workspace/copy_outputs.py
 '''
 
     def __init__(self, walltime, ntasks, jobname,
-                 simg_path=None,
-                 userscript_path=None,
+                 job_folder_name=None,
                  *args, **kargs):
 
         super().__init__(walltime, ntasks, jobname, None, *args, **kargs)
-        self.userscript_path = userscript_path
-        self.simg_path = simg_path
+        self.job_folder_name = job_folder_name
 
 
 class WRFHydroUserScript(BaseScript):
     name = "WRFHydroUserScript"
+    file_name = "run_mpi_call_singularity.py"
 
     SCRIPT_TEMPLATE = \
-'''#!/bin/bash
-cd /home/cigi-gisolve/$singularity_job_folder_path
-./wrf_hydro.exe
+'''
+import os
+import sys
+import pickle
+import pathlib
+from pprint import pprint
+
+print ('Number of arguments:', len(sys.argv), 'arguments.')
+print ('Argument List:', str(sys.argv))
+
+job_index = int(sys.argv[1])
+
+folder = pathlib.Path("/workspace/run")
+# pickle obj has the jobs in right order
+pickle_file = folder / "simulation.pkl"
+
+sim = pickle.load(folder.joinpath('simulation.pkl').open('rb'))
+
+job = sim.jobs[job_index]
+
+pprint("==================   Working on {job_id}  ===================".format(job_id=job.job_id))
+
+# side-effect: all processes to do the same copying, which is ok for now
+os.system('cp /workspace/run/job_{job_id}/* /workspace/run/'.format(job_id=job.job_id))
+os.system('cd /workspace/run && ./wrf_hydro.exe')
+
+pprint("==================  Done with {job_id}  ===================".format(job_id=job.job_id))
+exit()
+
 
 '''
 
-    singularity_job_folder_path = None
+class WRFHydroUserScript2(BaseScript):
+    name = "WRFHydroUserScript2"
+    file_name = "copy_outputs.py"
 
-    def __init__(self, singularity_job_folder_path, *args, **kargs):
-        super().__init__()
-        self.singularity_job_folder_path = singularity_job_folder_path
+    SCRIPT_TEMPLATE = \
+'''
+import os
+import sys
+import shutil
+import pickle
+import pathlib
+from pprint import pprint
+import wrfhydropy
 
+
+output = wrfhydropy.core.simulation.SimulationOutput()
+output.collect_output(sim_dir="/workspace/run")
+pprint(output.__dict__)
+output_folder_path = "/workspace/output"
+if not os.path.exists(output_folder_path):
+    os.makedirs(output_folder_path)
+for key, val in output.__dict__.items():
+    for path in val:
+        shutil.move(str(path), os.path.join(output_folder_path, os.path.basename(str(path))))
+os.system("cp /workspace/slurm* /workspace/output/")
+
+'''
 
 class WRFHydroKeelingJob(KeelingJob):
 
@@ -73,7 +156,7 @@ class WRFHydroKeelingJob(KeelingJob):
 
         super().__init__(local_workspace_path, connection, sbatch_script, local_id=local_id, *args, **kwargs)
 
-        # fix symbolic here
+        # fix symbolic here (not required as shutil.copytree() already resolves symbolics to real files)
         # https://www.thetopsites.net/article/52124943.shtml
         # rsync symdir/ symdir_output/ -a --copy-links -v
 
@@ -87,7 +170,7 @@ class WRFHydroKeelingJob(KeelingJob):
         return self.localID
 
     def prepare(self):
-        # Directory: "/Workspace/Job/Model/"
+        # Local Directory: "/Workspace/Job/Model/"
 
         # copy/move model folder to local job folder
         if self.move_source:
@@ -104,12 +187,6 @@ class WRFHydroKeelingJob(KeelingJob):
         # connection login remote
         self.connection.login()
 
-        self.singularity_home_folder_path = "/home/{}".format(self.connection.remote_user_name)
-        self.singularity_workspace_path = self.singularity_home_folder_path
-        self.singularity_job_folder_path = os.path.join(self.singularity_workspace_path, self.local_job_folder_name)
-        self.singularity_model_folder_path = os.path.join(self.singularity_job_folder_path, self.model_folder_name)
-
-
 
         self.remote_workspace_path = self.connection.remote_user_home
         self.remote_job_folder_name = self.local_job_folder_name
@@ -122,32 +199,17 @@ class WRFHydroKeelingJob(KeelingJob):
         self.logger.info(self.model_folder_name)
 
 
-        user_script = WRFHydroUserScript(os.path.join(self.remote_job_folder_name,
-                                                      self.model_folder_name))
-        self.sbatch_script.userscript_path = os.path.join("./home",
-                                                          self.connection.remote_user_name,
-                                                          self.remote_job_folder_name,
-                                                          "simulation_interactive",
-                                                          "script.sh")
-        #self.sbatch_script.userscript_path = user_script
-        user_script.generate_script(local_folder_path=self.local_model_folder_path)
+        user_script = WRFHydroUserScript()
+        user_script.generate_script(local_folder_path=self.local_job_folder_path)
 
+        user_script2 = WRFHydroUserScript2()
+        user_script2.generate_script(local_folder_path=self.local_job_folder_path)
 
         # save SBatch script
-        self.sbatch_script.generate_script(local_folder_path=self.local_model_folder_path)
-        self.sbatch_script.remote_folder_path = self.remote_model_folder_path
-        return
-        # replace local path with remote path
-        # sbatch.sh: change userscript path to path in singularity
-        # local workspace path -> singularity workspace path (singularity home directory)
-        self.replace_text_in_file(self.sbatch_script.local_path,
-                                  [(self.local_workspace_path, self.singularity_workspace_path)])
+        self.sbatch_script.job_folder_name = self.local_job_folder_name
+        self.sbatch_script.generate_script(local_folder_path=self.local_job_folder_path)
+        self.sbatch_script.remote_folder_path = self.remote_job_folder_path
 
-        # summa file_manager:
-        # file manager uses model_source_folder_path
-        # change to singularity_model_folder_path
-        self.replace_text_in_file(self.local_model_file_manager_path,
-                                  [(self.model_source_folder_path, self.singularity_model_folder_path)])
 
     def go(self):
         self.prepare()
@@ -156,7 +218,7 @@ class WRFHydroKeelingJob(KeelingJob):
         self.post_submission()
 
     def download(self):
-        self.connection.download(self.remote_model_folder_path,
+        self.connection.download(os.path.join(self.remote_job_folder_path, "run"),
                                  self.local_job_folder_path, remote_is_folder=True)
         self.connection.download(self.remote_slurm_out_file_path, self.local_job_folder_path)
 
