@@ -53,6 +53,7 @@ class WRFHydroKeelingSBatchScript(KeelingSBatchScript):
 ## See: https://docs.python.org/2.4/lib/node109.html
 job_num=$$(ls -dp /data/keeling/a/cigi-gisolve/$job_folder_name/run/job* | wc -l)
 
+## see: https://docs.nersc.gov/jobs/examples/#multiple-parallel-jobs-sequentially
 ## loop through 0 -- job_num-1
 for (( job_index=0; job_index<$$job_num; job_index++ ))
 do
@@ -238,11 +239,16 @@ class WRFHydroKeelingJob(KeelingJob):
                                                        self.slurm_out_file_name)
 import time
 from .connection import SSHConnection
-def WRFHydroSubmission(workspace, mode_path, nodes, wtime, hpc):
+def WRFHydroSubmission(workspace, mode_path, nodes, wtime, key=None):
+
+    if key is not None:
+        key_path = key
+    else:
+        key_path = "/wrf_hydro_py/keeling_test_20200804.key"
 
     keeling_con = SSHConnection("keeling.earth.illinois.edu",
                                 user_name="cigi-gisolve",
-                                key_path="/wrf_hydro_py/keeling_test_20200804.key")
+                                key_path=key_path)
 
     wrfhydro_sbatch = WRFHydroKeelingSBatchScript(wtime, nodes, "wrfhydro")
 
