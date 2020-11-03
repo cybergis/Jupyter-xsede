@@ -1,7 +1,4 @@
 import os
-import time
-import datetime
-from string import Template
 
 from .keeling import KeelingJob, KeelingSBatchScript
 from .base import BaseScript
@@ -48,20 +45,21 @@ class WRFHydroKeelingSBatchScript(KeelingSBatchScript):
 #SBATCH --ntasks=$ntasks
 #SBATCH --time=$walltime
 
+$module_config
+
 ## count number of folders job_xxxx
 ## $$ is to escape single dollar sign, which are used as bash variables later
 ## See: https://docs.python.org/2.4/lib/node109.html
-job_num=$$(ls -dp /data/keeling/a/cigi-gisolve/$job_folder_name/run/job* | wc -l)
+job_num=$$(ls -dp $remote_workspace_path/$job_folder_name/run/job* | wc -l)
 
 ## see: https://docs.nersc.gov/jobs/examples/#multiple-parallel-jobs-sequentially
 ## loop through 0 -- job_num-1
 for (( job_index=0; job_index<$$job_num; job_index++ ))
 do
   echo $$job_index
-  srun --mpi=pmi2 singularity exec -B /data/keeling/a/cigi-gisolve/$job_folder_name:/workspace /data/keeling/a/cigi-gisolve/simages/wrfhydro_test3.img python /workspace/run_mpi_call_singularity.py $$job_index
+  srun --mpi=pmi2 singularity exec -B $remote_workspace_path/$job_folder_name:/workspace $remote_singularity_img_path python /workspace/run_mpi_call_singularity.py $$job_index
 done
 
-#singularity exec -B /data/keeling/a/cigi-gisolve/$job_folder_name:/workspace /data/keeling/a/cigi-gisolve/simages/wrfhydro_test3.img python /workspace/copy_outputs.py
 '''
 
     def __init__(self, walltime, ntasks, jobname,
@@ -70,6 +68,9 @@ done
 
         super().__init__(walltime, ntasks, jobname, None, *args, **kargs)
         self.job_folder_name = job_folder_name
+        self.remote_workspace_path = "/data/keeling/a/cigi-gisolve"
+        self.remote_singularity_img_path = "/data/keeling/a/cigi-gisolve/simages/wrfhydro_test3.img"
+        self.module_config = "module list"
 
 
 class WRFHydroUserScript(BaseScript):
@@ -237,26 +238,61 @@ class WRFHydroKeelingJob(KeelingJob):
         self.slurm_out_file_name = "slurm-{}.out".format(remote_id)
         self.remote_slurm_out_file_path = os.path.join(self.remote_run_sbatch_folder_path,
                                                        self.slurm_out_file_name)
+
+
+class WRFHydroCometSBatchScript(WRFHydroKeelingSBatchScript):
+    name = "WRFHydroCometSBatchScript"
+
+    def __init__(self, walltime, ntasks, jobname,
+                 job_folder_name=None,
+                 *args, **kargs):
+        super().__init__(walltime, ntasks, jobname, None, *args, **kargs)
+        self.job_folder_name = job_folder_name
+        self.remote_workspace_path = "/home/cybergis"
+        self.remote_singularity_img_path = "/home/cybergis/SUMMA_IMAGE/wrfhydro_test3.img"
+        self.module_config = "module list && module load singularity/3.5 && module list"
+
+
+class WRFHydroCometJob(WRFHydroKeelingJob):
+
+    JOB_ID_PREFIX = "WRFHydro_"
+    sbatch_script_class = WRFHydroCometSBatchScript
+
+
+
 import time
 from .connection import SSHConnection
-def WRFHydroSubmission(workspace, mode_path, nodes, wtime, key=None):
+def WRFHydroSubmission(workspace, mode_path, nodes, wtime, hpc="keeling", key=None):
 
     if key is not None:
         key_path = key
     else:
         key_path = "/wrf_hydro_py/keeling_test_20200804.key"
 
-    keeling_con = SSHConnection("keeling.earth.illinois.edu",
-                                user_name="cigi-gisolve",
+    server_url = "keeling.earth.illinois.edu"
+    user_name = "cigi-gisolve"
+    WRFHydroSBatchScriptClass = WRFHydroKeelingSBatchScript
+    WRFHydroJobClass = WRFHydroKeelingJob
+
+    if hpc == "comet":
+        server_url = "comet.sdsc.edu"
+        user_name = "cybergis"
+        WRFHydroSBatchScriptClass = WRFHydroCometSBatchScript
+        WRFHydroJobClass = WRFHydroCometJob
+
+
+
+    con = SSHConnection(server_url,
+                                user_name=user_name,
                                 key_path=key_path)
 
-    wrfhydro_sbatch = WRFHydroKeelingSBatchScript(wtime, nodes, "wrfhydro")
 
-    #local_workspace_path = "/wrf_hydro_py/tmp"
+    wrfhydro_sbatch = WRFHydroSBatchScriptClass(wtime, nodes, "wrfhydro")
+
+
     local_workspace_path = workspace
-    #model_source_folder_path = "/wrf_hydro_py/tmp/wrfhydropy_end-to-end_example/simulation_interactive"
     model_source_folder_path = mode_path
-    job = WRFHydroKeelingJob(local_workspace_path, keeling_con, wrfhydro_sbatch, model_source_folder_path,
+    job = WRFHydroJobClass(local_workspace_path, con, wrfhydro_sbatch, model_source_folder_path,
                              name="WRFHydro")
     job.prepare()
     job.upload()
@@ -270,7 +306,7 @@ def WRFHydroSubmission(workspace, mode_path, nodes, wtime, key=None):
         if status == "ERROR":
             logger.info("Job status ERROR")
             break
-        elif status == "C":
+        elif status == "C" or status == "UNKNOWN":
             logger.info("Job completed: {}; {}".format(job.local_id, job.remote_id))
             job.download()
             break
