@@ -50,10 +50,13 @@ echo $$SLURM_JOB_NODELIST
 
 $module_config
 
+## change wrf_hydro.exe permission
+chmod +x $remote_workspace_path/$job_folder_name/$model_folder_name/wrf_hydro.exe
+
 ## count number of folders job_xxxx
 ## $$ is to escape single dollar sign, which are used as bash variables later
 ## See: https://docs.python.org/2.4/lib/node109.html
-job_num=$$(ls -dp $remote_workspace_path/$job_folder_name/run/job* | wc -l)
+job_num=$$(ls -dp $remote_workspace_path/$job_folder_name/$model_folder_name/job* | wc -l)
 
 ## see: https://docs.nersc.gov/jobs/examples/#multiple-parallel-jobs-sequentially
 ## loop through 0 -- job_num-1
@@ -102,7 +105,7 @@ print ('Argument List:', str(sys.argv))
 
 job_index = int(sys.argv[1])
 
-folder = pathlib.Path("/workspace/run")
+folder = pathlib.Path("/workspace/$model_folder_name")
 # pickle obj has the jobs in right order
 pickle_file = folder / "simulation.pkl"
 
@@ -113,8 +116,8 @@ job = sim.jobs[job_index]
 pprint("==================   Working on {job_id}  ===================".format(job_id=job.job_id))
 
 # side-effect: all processes to do the same copying, which is ok for now
-os.system('cp /workspace/run/job_{job_id}/* /workspace/run/'.format(job_id=job.job_id))
-os.system('cd /workspace/run && ./wrf_hydro.exe')
+os.system('cp /workspace/$model_folder_name/job_{job_id}/* /workspace/$model_folder_name/'.format(job_id=job.job_id))
+os.system('cd /workspace/$model_folder_name && ./wrf_hydro.exe')
 
 pprint("==================  Done with {job_id}  ===================".format(job_id=job.job_id))
 exit()
@@ -138,14 +141,15 @@ import wrfhydropy
 
 
 output = wrfhydropy.core.simulation.SimulationOutput()
-output.collect_output(sim_dir="/workspace/run")
+output.collect_output(sim_dir="/workspace/$model_folder_name")
 pprint(output.__dict__)
 output_folder_path = "/workspace/output"
 if not os.path.exists(output_folder_path):
     os.makedirs(output_folder_path)
 for key, val in output.__dict__.items():
     for path in val:
-        shutil.move(str(path), os.path.join(output_folder_path, os.path.basename(str(path))))
+        shutil.copyfile(str(path), os.path.join(output_folder_path, os.path.basename(str(path))))
+        #shutil.move()
 os.system("cp /workspace/slurm* /workspace/output/")
 
 '''
@@ -213,15 +217,19 @@ class WRFHydroKeelingJob(KeelingJob):
 
 
         user_script = WRFHydroUserScript()
+        user_script.model_folder_name = self.model_folder_name
         user_script.generate_script(local_folder_path=self.local_job_folder_path)
 
         user_script2 = WRFHydroUserScript2()
+        user_script2.model_folder_name = self.model_folder_name
         user_script2.generate_script(local_folder_path=self.local_job_folder_path)
 
         # save SBatch script
         self.sbatch_script.job_folder_name = self.local_job_folder_name
+        self.sbatch_script.model_folder_name = self.model_folder_name
         self.sbatch_script.generate_script(local_folder_path=self.local_job_folder_path)
         self.sbatch_script.remote_folder_path = self.remote_job_folder_path
+
 
 
     def go(self):
@@ -303,9 +311,7 @@ def WRFHydroSubmission(workspace, mode_path, nodes, wtime,
     model_source_folder_path = mode_path
     job = WRFHydroJobClass(local_workspace_path, con, wrfhydro_sbatch, model_source_folder_path,
                              name="WRFHydro")
-    job.prepare()
-    job.upload()
-    job.submit()
+    job.go()
 
     job_local_id = job.local_id
     job_remote_id = job.remote_id

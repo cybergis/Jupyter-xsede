@@ -10,4 +10,5 @@ from .floret import *
 from .shapefile import *
 from .summaSupervisor import *
 from .wrfhydro import *
+from .wrfhydroSupervisor import *
 
