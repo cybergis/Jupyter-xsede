@@ -47,10 +47,12 @@ class BaseScript(object):
     def parameter_dict(self, *args, **kwargs):
         return self.__dict__
 
-    def generate_script(self, local_folder_path=None, parameter_dict=None):
+    def generate_script(self, local_folder_path=None, _parameter_dict=None):
         local_folder_path = str(local_folder_path)
-        if not isinstance(parameter_dict, dict):
-            parameter_dict = self.parameter_dict()
+        parameter_dict = self.parameter_dict()
+        self.logger.info(parameter_dict)
+        if isinstance(_parameter_dict, dict):
+            parameter_dict = parameter_dict.update(_parameter_dict)
 
         for k, v in parameter_dict.items():
             if isinstance(v, BaseScript):

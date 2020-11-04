@@ -9,3 +9,5 @@ from .summaUI import *
 from .floret import *
 from .shapefile import *
 from .summaSupervisor import *
+from .wrfhydro import *
+

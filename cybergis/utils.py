@@ -49,7 +49,7 @@ class UtilsMixin(object):
         os.makedirs(folder_path, exist_ok=True)
         return folder_path
 
-    def copy_local(self, source, target):
+    def copy_local(self, source, target, use_rsync=False):
         """
         file --> file
         file --> target/file
@@ -60,6 +60,12 @@ class UtilsMixin(object):
         """
         if not os.path.exists(source):
             raise Exception("Source does not exist")
+
+        if use_rsync:
+            os.system('rsync {symdir} {symdir_output} -a --copy-links -v'.format(symdir=source, symdir_output=target))
+            logger.debug("Local rsync copying {} to {}".format(source, target))
+            return
+
         source_is_folder = os.path.isdir(source)
         target_exists = os.path.exists(target)
         target_is_file = os.path.isfile(target)
