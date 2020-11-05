@@ -274,7 +274,7 @@ class WRFHydroCometSBatchScript(WRFHydroKeelingSBatchScript):
         self.remote_workspace_path = "/oasis/scratch/comet/cybergis/temp_project"
         self.remote_singularity_img_path = "/home/cybergis/SUMMA_IMAGE/wrfhydro_bionic.simg"
         self.module_config = "module list && module load singularity/3.5 && module list"
-        self.partition = "shared"  # compute, shared
+        self.partition = "compute"  # compute, shared
 
 
 class WRFHydroCometJob(WRFHydroKeelingJob):
