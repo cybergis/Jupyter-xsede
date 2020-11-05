@@ -85,8 +85,8 @@ singularity exec -B $remote_workspace_path/$job_folder_name:/workspace $remote_s
 
         super().__init__(walltime, ntasks, jobname, None, *args, **kargs)
         self.job_folder_name = job_folder_name
-        self.remote_workspace_path = "/data/keeling/a/cigi-gisolve"
-        #self.remote_workspace_path = "/data/keeling/a/zhiyul"
+        #self.remote_workspace_path = "/data/keeling/a/cigi-gisolve"
+        self.remote_workspace_path = "/data/cigi/scratch/cigi-gisolve"
         self.remote_singularity_img_path = "/data/keeling/a/cigi-gisolve/simages/wrfhydro_xenial.simg"
 
         self.module_config = "module list"
