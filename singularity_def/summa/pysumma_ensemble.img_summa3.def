@@ -1,5 +1,5 @@
-# summa (sopron 2018): f18270c2ce5f2b5004c2b3e1799bd0969612bb68
-# pysumma: 28e09a77da5233e9e9d39bfb155f479b38f57f8e
+# summa3: a843a8c46484d47979f8cb8e48b82ef71a177894
+# pysumma: e118139c64f7c4c4d00e7ec80da869a935637987
 
 Bootstrap: docker
 From: ubuntu:xenial
@@ -32,27 +32,33 @@ IncludeCmd: yes
     export F_MASTER=/code
     export FC=gfortran
     export FC_EXE=gfortran
-    export FC_ENV=gfortran-6-docker
-    export isOpenMP=yes
+    export INCLUDES='-I/usr/include'
+    export LIBRARIES='-L/usr/lib -lnetcdff -L/usr/lib -lblas -llapack'
     cd /code
     git fetch --tags && make -C build/ -f Makefile
 
     apt-get update &&\
-    wget --quiet https://repo.continuum.io/archive/Anaconda3-2019.07-Linux-x86_64.sh -O ~/anaconda.sh && \
-    /bin/bash ~/anaconda.sh -b -p /opt/conda && \
-    rm ~/anaconda.sh
+    wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-py37_4.8.3-Linux-x86_64.sh -O ~/miniconda3.sh && \
+    /bin/bash ~/miniconda3.sh -b -p /opt/conda && \
+    rm ~/miniconda3.sh
     #Install Python packages for pySUMMA
     export PATH=/opt/conda/bin:$PATH
     conda config --add channels conda-forge
-    pip install  git+https://github.com/UW-Hydro/pysumma.git@28e09a77da5233e9e9d39bfb155f479b38f57f8e
-    conda install mpi4py
+    # install dependencies for pysumma
+    wget https://raw.githubusercontent.com/UW-Hydro/pysumma/master/environment.yml -O ~/pysumma_env.yml && \
+    sed -i 's/- summa=3.0.0/#- summa=3.0.0/g' ~/pysumma_env.yml && \
+    sed -i 's/pysumma/base/g' ~/pysumma_env.yml && \
+    cat ~/pysumma_env.yml && \
+    conda env update --name base -f ~/pysumma_env.yml
+    pip install  git+https://github.com/UW-Hydro/pysumma.git@e118139c64f7c4c4d00e7ec80da869a935637987
+    conda install -c conda-forge mpi4py=3.0.3
+    
 
 %environment
     export PATH=/opt/conda/bin:$PATH
     export F_MASTER=/code
     export FC=gfortran
     export FC_EXE=gfortran
-    export FC_ENV=gfortran-6-docker
 %runscript
     exec python $@
 
