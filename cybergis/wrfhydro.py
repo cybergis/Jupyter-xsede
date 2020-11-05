@@ -44,6 +44,7 @@ class WRFHydroKeelingSBatchScript(KeelingSBatchScript):
 #SBATCH --job-name=$jobname
 #SBATCH --ntasks=$ntasks
 #SBATCH --time=$walltime
+#SBATCH --partition=$partition
 
 ## allocated hostnames
 echo $$SLURM_JOB_NODELIST
@@ -86,6 +87,7 @@ singularity exec -B $remote_workspace_path/$job_folder_name:/workspace $remote_s
         self.remote_singularity_img_path = "/data/keeling/a/cigi-gisolve/simages/wrfhydro_bionic.simg"
 
         self.module_config = "module list"
+        self.partition = "node"  # node sesempi
 
 
 class WRFHydroUserScript(BaseScript):
@@ -272,6 +274,7 @@ class WRFHydroCometSBatchScript(WRFHydroKeelingSBatchScript):
         self.remote_workspace_path = "/oasis/scratch/comet/cybergis/temp_project"
         self.remote_singularity_img_path = "/home/cybergis/SUMMA_IMAGE/wrfhydro_bionic.simg"
         self.module_config = "module list && module load singularity/3.5 && module list"
+        self.partition = "shared"  # compute, shared
 
 
 class WRFHydroCometJob(WRFHydroKeelingJob):
