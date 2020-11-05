@@ -150,9 +150,10 @@ if not os.path.exists(output_folder_path):
     os.makedirs(output_folder_path)
 for key, val in output.__dict__.items():
     for path in val:
-        shutil.copyfile(str(path), os.path.join(output_folder_path, os.path.basename(str(path))))
-        #shutil.move()
+        #shutil.copyfile(str(path), os.path.join(output_folder_path, os.path.basename(str(path))))
+        shutil.move(str(path), os.path.join(output_folder_path, os.path.basename(str(path))))
 os.system("cp /workspace/slurm* /workspace/output/")
+os.system("cp /workspace/diag* /workspace/output/")
 
 '''
 
