@@ -141,17 +141,18 @@ import pathlib
 from pprint import pprint
 import wrfhydropy
 
-
-output = wrfhydropy.core.simulation.SimulationOutput()
-output.collect_output(sim_dir="/workspace/$model_folder_name")
-pprint(output.__dict__)
 output_folder_path = "/workspace/output"
 if not os.path.exists(output_folder_path):
     os.makedirs(output_folder_path)
-for key, val in output.__dict__.items():
-    for path in val:
-        #shutil.copyfile(str(path), os.path.join(output_folder_path, os.path.basename(str(path))))
-        shutil.move(str(path), os.path.join(output_folder_path, os.path.basename(str(path))))
+try:    
+    output = wrfhydropy.core.simulation.SimulationOutput()
+    output.collect_output(sim_dir="/workspace/$model_folder_name")
+    for key, val in output.__dict__.items():
+        for path in val:
+            #shutil.copyfile(str(path), os.path.join(output_folder_path, os.path.basename(str(path))))
+            shutil.move(str(path), os.path.join(output_folder_path, os.path.basename(str(path))))
+except Exception:
+    pass
 os.system("cp /workspace/slurm* /workspace/output/")
 os.system("cp /workspace/$model_folder_name/diag* /workspace/output/")
 os.system("cp /workspace/$model_folder_name/*stdout /workspace/output/")
