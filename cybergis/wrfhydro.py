@@ -51,6 +51,9 @@ echo $$SLURM_JOB_NODELIST
 
 $module_config
 
+## compile mode from source
+singularity exec -B $remote_workspace_path/$job_folder_name:/workspace $remote_singularity_img_path python /workspace/compile_wrfhydro.py
+  
 ## change wrf_hydro.exe permission
 chmod +x $remote_workspace_path/$job_folder_name/$model_folder_name/wrf_hydro.exe
 
@@ -84,7 +87,7 @@ singularity exec -B $remote_workspace_path/$job_folder_name:/workspace $remote_s
         self.job_folder_name = job_folder_name
         self.remote_workspace_path = "/data/keeling/a/cigi-gisolve"
         #self.remote_workspace_path = "/data/keeling/a/zhiyul"
-        self.remote_singularity_img_path = "/data/keeling/a/cigi-gisolve/simages/wrfhydro_bionic.simg"
+        self.remote_singularity_img_path = "/data/keeling/a/cigi-gisolve/simages/wrfhydro_xenial.simg"
 
         self.module_config = "module list"
         self.partition = "node"  # node sesempi
@@ -157,7 +160,51 @@ os.system("cp /workspace/slurm* /workspace/output/")
 os.system("cp /workspace/$model_folder_name/diag* /workspace/output/")
 os.system("cp /workspace/$model_folder_name/*stdout /workspace/output/")
 os.system("cp /workspace/$model_folder_name/*stderr /workspace/output/")
+os.system("cp /workspace/$model_folder_name/*.exe /workspace/output/")
+os.system("cp /workspace/$model_folder_name/*.pkl /workspace/output/")
 '''
+
+
+class WRFHydroUserScript3(BaseScript):
+    name = "WRFHydroUserScript3"
+    file_name = "compile_wrfhydro.py"
+
+    SCRIPT_TEMPLATE = \
+'''
+import wrfhydropy
+import pathlib
+import os
+import pickle
+import tempfile
+
+
+in_model_pkl = '/workspace/$model_folder_name/WrfHydroModel.pkl'
+out_folder = '/workspace/$model_folder_name'
+repo = "https://github.com/NCAR/wrf_hydro_nwm_public.git"
+
+model = pickle.load(pathlib.Path(in_model_pkl).open('rb'))
+config = model.model_config
+commit_id = model.git_hash
+print("{}; {}".format(commit_id, config))
+
+temp = tempfile.mkdtemp()
+
+cmd = "git clone {repo} {temp} && cd {temp} && git checkout {commit_id}".format(repo=repo, temp=temp, commit_id=commit_id)
+os.system(cmd)
+
+experiment_dir = pathlib.Path(temp)
+model_src = experiment_dir / 'trunk/NDHMS'
+
+model = wrfhydropy.Model(
+    model_src,
+    compiler='gfort',
+    model_config=config)
+    
+compile_dir = pathlib.Path(out_folder)
+model.compile(compile_dir)
+
+'''
+
 
 class WRFHydroKeelingJob(KeelingJob):
 
@@ -228,6 +275,10 @@ class WRFHydroKeelingJob(KeelingJob):
         user_script2 = WRFHydroUserScript2()
         user_script2.model_folder_name = self.model_folder_name
         user_script2.generate_script(local_folder_path=self.local_job_folder_path)
+
+        user_script3 = WRFHydroUserScript3()
+        user_script3.model_folder_name = self.model_folder_name
+        user_script3.generate_script(local_folder_path=self.local_job_folder_path)
 
         # save SBatch script
         self.sbatch_script.job_folder_name = self.local_job_folder_name
