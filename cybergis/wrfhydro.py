@@ -326,7 +326,7 @@ class WRFHydroCometSBatchScript(WRFHydroKeelingSBatchScript):
         # Lustre Comet scratch filesystem: /oasis/scratch/comet/$USER/temp_project
         # see: https://www.sdsc.edu/support/user_guides/comet.html
         self.remote_workspace_path = "/oasis/scratch/comet/cybergis/temp_project"
-        self.remote_singularity_img_path = "/home/cybergis/SUMMA_IMAGE/wrfhydro_bionic.simg"
+        self.remote_singularity_img_path = "/home/cybergis/SUMMA_IMAGE/wrfhydro_xenial.simg"
         self.module_config = "module list && module load singularity/3.5 && module list"
         self.partition = "compute"  # compute, shared
 
