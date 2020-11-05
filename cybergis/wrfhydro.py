@@ -153,8 +153,9 @@ for key, val in output.__dict__.items():
         #shutil.copyfile(str(path), os.path.join(output_folder_path, os.path.basename(str(path))))
         shutil.move(str(path), os.path.join(output_folder_path, os.path.basename(str(path))))
 os.system("cp /workspace/slurm* /workspace/output/")
-os.system("cp /workspace/diag* /workspace/output/")
-
+os.system("cp /workspace/$model_folder_name/diag* /workspace/output/")
+os.system("cp /workspace/$model_folder_name/*stdout /workspace/output/")
+os.system("cp /workspace/$model_folder_name/*stderr /workspace/output/")
 '''
 
 class WRFHydroKeelingJob(KeelingJob):
