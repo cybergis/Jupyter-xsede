@@ -60,7 +60,7 @@ chmod +x $remote_workspace_path/$job_folder_name/$model_folder_name/wrf_hydro.ex
 ## count number of folders job_xxxx
 ## $$ is to escape single dollar sign, which are used as bash variables later
 ## See: https://docs.python.org/2.4/lib/node109.html
-job_num=$$(ls -dp $remote_workspace_path/$job_folder_name/$model_folder_name/job* | wc -l)
+job_num=$$(find $remote_workspace_path/$job_folder_name/$model_folder_name/job_* -type d | wc -l)
 
 ## see: https://docs.nersc.gov/jobs/examples/#multiple-parallel-jobs-sequentially
 ## loop through 0 -- job_num-1
@@ -73,6 +73,12 @@ do
   
   ## sequential run for testing
   ## singularity exec -B $remote_workspace_path/$job_folder_name:/workspace $remote_singularity_img_path python /workspace/run_mpi_call_singularity.py $$job_index
+
+  if [ $$job_index -lt $$((job_num-1)) ]
+    then
+       echo "sleep for 5s"
+       sleep 5
+  fi
 done
 
 singularity exec -B $remote_workspace_path/$job_folder_name:/workspace $remote_singularity_img_path python /workspace/copy_outputs.py
