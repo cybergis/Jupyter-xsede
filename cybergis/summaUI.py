@@ -5,6 +5,7 @@ import ipywidgets as widgets
 from IPython.display import display
 from tkinter import Tk, filedialog
 import traitlets
+import json
 
 from .base import *
 from .connection import *
@@ -24,6 +25,10 @@ def Labeled(label, widget):
 
 def Title():
     return (widgets.Box([widgets.HTML(value='<h1>Submit Summa Model to HPC</h1>')],
+        layout=widgets.Layout(display='flex',align_items='center',flex_flow='row')
+        ))
+def Titleprint():
+    return (widgets.Box([widgets.HTML(value='<h1>Print a number</h1>')],
         layout=widgets.Layout(display='flex',align_items='center',flex_flow='row')
         ))
 
@@ -71,9 +76,9 @@ class SelectFolderButton(widgets.Button):
         b.icon = "check-square-o"
         b.style.button_color = "lightgreen"
 
-class summaUI():
+class summa_base():
     username = ""
-    machine = ""
+    machine = "keeling"
     model_source_folder_path = "" ## the path to the summa testcase folder
     file_manager_path = "" ## the path to the filemanager folder
     jobname = "summa" ## the name of the job
@@ -88,44 +93,80 @@ class summaUI():
     job_remote_id = None
     private_key_path = None
     user_pw = None
+    model_name = None
 
-    def __init__(self, model_folder_path, filemanager_path, workspace_path,
+    
+## New App    
+class printnumber():
+    number = ""
+    
+         
+         
+    
+    
+
+class HPCUI(summa_base, printnumber):
+    def __init__(self, para_json_str,
                  username="cigi-gisolve",
-                 machine="keeling",
                  private_key_path="/opt/cybergis/.gisolve.key",
                  user_pw=None):
+        
+        para_json = json.loads(para_json_str)
         self.username=username
-        self.machine=machine
-        self.file_manager_path = filemanager_path
-        self.model_source_folder_path = model_folder_path
-        self.workspace_path = workspace_path
+        try:
+            self.model_name=para_json['model']
+        except:
+            pass
+        try:
+            self.machine=para_json['machine']
+        except:
+            pass
+        try:
+            self.file_manager_path = para_json['file_manger_rel_path']
+        except:
+            pass
+        try:
+            self.model_source_folder_path = para_json['model_source_folder_path']
+        except:
+            pass
+        try:
+            self.workspace_path = para_json['workspace_dir']
+        except:
+            pass
+        
         self.private_key_path = private_key_path
         self.user_pw = user_pw
 
-    def runSumma(self):
-        if (self.machine=="keeling"):
-            if (self.username == "cigi-gisolve"):
-                self.keeling_con = SSHConnection("keeling.earth.illinois.edu",
-                            user_name="cigi-gisolve",
-                            key_path=self.private_key_path)
-            else:
-                self.keeling_con = SSHConnection("keeling.earth.illinois.edu",
-                            user_name=self.username,
-                            user_pw=self.user_pw)
-        elif self.machine.lower()=="comet":
-            if self.username=="cigi-gisolve":
-                self.keeling_con = SSHConnection("comet.sdsc.edu",
-                            user_name="cybergis",
-                            key_path=self.private_key_path)
-            else:
-                self.keeling_con = SSHConnection("comet.sdsc.edu",
-                            user_name=self.username,
-                            user_pw=self.user_pw)
-        else:
-            print("Not implemented yet")
+    def run(self):
+        if (self.model_name.lower()=="summa"):
+            if (self.machine=="keeling"):
+                if (self.username == "cigi-gisolve"):
+                    self.keeling_con = SSHConnection("keeling.earth.illinois.edu",
+                                user_name="cigi-gisolve",
+                                key_path=self.private_key_path)
+                else:
+                    self.keeling_con = SSHConnection("keeling.earth.illinois.edu",
+                                user_name=self.username,
+                                user_pw=self.user_pw)
+            elif self.machine.lower()=="comet":
+                if self.username=="cigi-gisolve":
+                    self.keeling_con = SSHConnection("comet.sdsc.edu",
+                                user_name="cybergis",
+                                key_path=self.private_key_path)
+                else:
+                    self.keeling_con = SSHConnection("comet.sdsc.edu",
+                                user_name=self.username,
+                                user_pw=self.user_pw)
+            #else:
+            #    print("Not implemented yet")
 
 
-        self.__submitUI()
+            self.__submitUI()
+        
+        if (self.model_name.lower()=="print"):
+            self.__submitprint()
+        #else:
+        #    print("Not implemented yet")
 
     def go(self):
 
@@ -172,6 +213,47 @@ class summaUI():
                 else:
                     logger.info(status)
             logger.info("Done")
+        
+    def goprintnumber(self):
+            print("The number is "+str(self.number))
+
+            
+            
+    def __submitprint(self):
+        number=widgets.IntSlider(
+            value=1,
+            min=1,
+            max=16,
+            step=1,
+            continuous_update=False,
+            orientation='horizontal',
+            readout=True,
+            readout_format='d',
+            slider_color='white'
+        )
+        confirm=widgets.Button(
+            description='Submit Job',
+            button_style='', # 'success', 'info', 'warning', 'danger' or ''
+            tooltip='Submit job'
+        )
+        submitForm=widgets.VBox([
+            Titleprint(),
+            Labeled('print number', number),
+            Labeled('', confirm)
+        ])
+        display(submitForm)
+        def submit(b):
+            b.disabled = True
+
+            try:
+                self.number = number.value
+                self.goprintnumber()
+            except Exception as ex:
+                raise ex
+            finally:
+                b.disabled = False
+                
+        confirm.on_click(submit)
 
     def __submitUI(self):
 
@@ -229,7 +311,97 @@ class summaUI():
 
     def getlocalid(self):
         return self.localID
+    def printme(self):
+        print("I am doing good")
 
+        
+class summaUI(HPCUI):
+    def __init__(self, model_folder_path, filemanager_path, workspace_path,
+                 username="cigi-gisolve",
+                 machine="keeling",
+                 private_key_path="/opt/cybergis/.gisolve.key",
+                 user_pw=None):
+        self.username=username
+        self.machine=machine
+        self.file_manager_path = filemanager_path
+        self.model_source_folder_path = model_folder_path
+        self.workspace_path = workspace_path
+        self.private_key_path = private_key_path
+        self.user_pw = user_pw
+        self.model_name = "summa"
+        
+    def runSumma(self):
+        self.run()
+        
+class HPCSUMMA(HPCUI):
+    def __init__(self, para_json_str,
+                 username="cigi-gisolve",
+                 private_key_path="/opt/cybergis/.gisolve.key",
+                 user_pw=None):
+        
+        para_json = json.loads(para_json_str)
+        self.username=username
+        try:
+            self.model_name=para_json['model']
+        except:
+            pass
+        try:
+            self.machine=para_json['machine']
+        except:
+            pass
+        try:
+            self.file_manager_path = para_json['file_manger_rel_path']
+        except:
+            pass
+        try:
+            self.model_source_folder_path = para_json['model_source_folder_path']
+        except:
+            pass
+        try:
+            self.workspace_path = para_json['workspace_dir']
+        except:
+            pass
+        try:
+            self.node = para_json['node']
+        except:
+            pass
+        try:
+            self.wt = para_json['walltime']
+        except:
+            pass
+        
+        self.private_key_path = private_key_path
+        self.user_pw = user_pw    
+        
+    def run(self):
+        if (self.model_name.lower()=="summa"):
+            if (self.machine=="keeling"):
+                if (self.username == "cigi-gisolve"):
+                    self.keeling_con = SSHConnection("keeling.earth.illinois.edu",
+                                user_name="cigi-gisolve",
+                                key_path=self.private_key_path)
+                else:
+                    self.keeling_con = SSHConnection("keeling.earth.illinois.edu",
+                                user_name=self.username,
+                                user_pw=self.user_pw)
+            elif self.machine.lower()=="comet":
+                if self.username=="cigi-gisolve":
+                    self.keeling_con = SSHConnection("comet.sdsc.edu",
+                                user_name="cybergis",
+                                key_path=self.private_key_path)
+                else:
+                    self.keeling_con = SSHConnection("comet.sdsc.edu",
+                                user_name=self.username,
+                                user_pw=self.user_pw)
+                    
+        try:
+            self.node = para_json['node']
+        except:
+            pass
+        try:
+            self.wt = para_json['walltime']
+        except:
+            pass
+        self.go()   
 
-
-
+        

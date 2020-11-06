@@ -10,7 +10,8 @@ class KeelingSBatchScript(SBatchScript):
 
 
 class KeelingJob(SlurmJob):
-
+    ## keelingjob is the base job class
+    ## For other machine, please inherit from KeelingJob
     JOB_ID_PREFIX = "Keeling_"
     backend = "keeling"
     connection_class = SSHConnection

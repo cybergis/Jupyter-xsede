@@ -15,8 +15,7 @@ class SummaKeelingSBatchScript(KeelingSBatchScript):
     name = "SummaKeelingSBatchScript"
     file_name = "summa.sbatch"
 
-    SCRIPT_TEMPLATE = \
-'''#!/bin/bash
+    SCRIPT_TEMPLATE = """#!/bin/bash
 #SBATCH --job-name=$jobname
 #SBATCH --ntasks=$ntasks
 #SBATCH --time=$walltime
@@ -24,11 +23,10 @@ class SummaKeelingSBatchScript(KeelingSBatchScript):
 srun --mpi=pmi2 singularity exec \
    $simg_path \
    python $userscript_path 
-'''
-    simg_path = "/data/keeling/a/cigi-gisolve/simages/pysumma_ensemble.img"
+"""
+    simg_path = "/data/keeling/a/cigi-gisolve/simages/pysumma_ensemble.img_summa3"
 
-    def __init__(self, walltime, ntasks, jobname,
-                 userscript_path=None, *args, **kargs):
+    def __init__(self, walltime, ntasks, jobname, userscript_path=None, *args, **kargs):
 
         super().__init__(walltime, ntasks, jobname, None, *args, **kargs)
         self.userscript_path = userscript_path
@@ -39,8 +37,7 @@ class SummaCometSBatchScript(SummaKeelingSBatchScript):
 
     name = "SummaCometSBatchScript"
 
-    SCRIPT_TEMPLATE = \
-'''#!/bin/bash
+    SCRIPT_TEMPLATE = """#!/bin/bash
 #SBATCH --job-name=$jobname
 #SBATCH --ntasks=$ntasks
 #SBATCH --time=$walltime
@@ -49,19 +46,19 @@ module load singularity
 srun --mpi=pmi2 singularity exec \
    $simg_path \
    python $userscript_path 
-'''
-    simg_path = "/home/cybergis/SUMMA_IMAGE/pysumma_ensemble.img"
+"""
+    simg_path = "/home/cybergis/SUMMA_IMAGE/pysumma_ensemble.img_summa3"
 
 
 class SummaUserScript(BaseScript):
     name = "SummaUserScript"
 
-    SCRIPT_TEMPLATE = \
-'''
+    SCRIPT_TEMPLATE = """
 import json
 import os
 import numpy as np
 from mpi4py import MPI
+import subprocess
 import pysumma as ps
 
 comm = MPI.COMM_WORLD
@@ -97,6 +94,9 @@ config_pair_list = groups[rank].tolist()
 new_instance_path = os.path.join(workers_folder_path, instance + "_{}".format(rank))
 os.system("cp -rf {} {}".format(instance_path, new_instance_path))
 # sync: make every rank finishes copying
+subprocess.run(
+    ["./installTestCases_local.sh"], cwd=new_instance_path,
+)
 comm.Barrier()
 
 # file manager path
@@ -106,7 +106,8 @@ executable = "/code/bin/summa.exe"
 
 s = ps.Simulation(executable, file_manager)
 # fix setting_path to point to this worker
-s.manager["settings_path"].value = s.manager["settings_path"].value.replace(instance_path, new_instance_path) 
+s.manager["settingsPath"].value = s.manager["settingsPath"].value.replace(instance_path, new_instance_path) 
+s.manager["outputPath"].value = os.path.join(instance_path, "output/")
 
 # Dont not use this as it rewrites every files including those in original folder -- Race condition
 #s._write_configuration()
@@ -126,9 +127,11 @@ for config_pair in config_pair_list:
         print(type(config))
         
         # create a new Simulation obj each time to avoid potential overwriting issue or race condition
-        ss = ps.Simulation(executable, file_manager)
+        ss = ps.Simulation(executable, file_manager, False)
+        ss.initialize()
         ss.apply_config(config)
         ss.run('local', run_suffix=name)
+        print(ss.stdout)
     except Exception as ex:
         print("Error in ({}/{}) {}: {}".format(rank, size, name, str(config)))
         print(ex)
@@ -136,15 +139,21 @@ for config_pair in config_pair_list:
 comm.Barrier()
 print("Done in {}/{} ".format(rank, size))
 
-'''
+"""
 
     singularity_job_folder_path = None
     model_folder_name = None
     file_manager_name = None
     file_name = "runSumma.py"
 
-    def __init__(self, singularity_job_folder_path, model_folder_name,
-                 file_manager_name, *args, **kargs):
+    def __init__(
+        self,
+        singularity_job_folder_path,
+        model_folder_name,
+        file_manager_name,
+        *args,
+        **kargs
+    ):
         super().__init__()
         self.singularity_job_folder_path = singularity_job_folder_path
         self.model_folder_name = model_folder_name
@@ -158,18 +167,32 @@ class SummaKeelingJob(KeelingJob):
     user_script_class = SummaUserScript
     localID = None
 
-    def __init__(self, local_workspace_path, connection, sbatch_script,
-                 model_source_folder_path, model_source_file_manager_rel_path,
-                 local_id=None,
-                 move_source=False,
-                 *args, **kwargs):
+    def __init__(
+        self,
+        local_workspace_path,
+        connection,
+        sbatch_script,
+        model_source_folder_path,
+        model_source_file_manager_rel_path,
+        local_id=None,
+        move_source=False,
+        *args,
+        **kwargs
+    ):
 
         if local_id is None:
             t = str(int(time.time()))
             local_id = self.random_id(prefix=self.JOB_ID_PREFIX + "{}_".format(t))
-            self.localID=local_id
+            self.localID = local_id
 
-        super().__init__(local_workspace_path, connection, sbatch_script, local_id=local_id, *args, **kwargs)
+        super().__init__(
+            local_workspace_path,
+            connection,
+            sbatch_script,
+            local_id=local_id,
+            *args,
+            **kwargs
+        )
 
         # Directory: "/Workspace/Job/Model/"
         model_source_folder_path = self._check_abs_path(model_source_folder_path)
@@ -177,9 +200,12 @@ class SummaKeelingJob(KeelingJob):
         self.model_folder_name = os.path.basename(self.model_source_folder_path)
 
         self.model_source_file_manager_rel_path = model_source_file_manager_rel_path
-        self.model_file_manager_name = os.path.basename(self.model_source_file_manager_rel_path)
-        self.model_source_file_manager_path = os.path.join(model_source_folder_path,
-                                                           self.model_source_file_manager_rel_path)
+        self.model_file_manager_name = os.path.basename(
+            self.model_source_file_manager_rel_path
+        )
+        self.model_source_file_manager_path = os.path.join(
+            model_source_folder_path, self.model_source_file_manager_rel_path
+        )
 
         self.move_source = move_source
 
@@ -191,50 +217,66 @@ class SummaKeelingJob(KeelingJob):
 
         # copy/move model folder to local job folder
         if self.move_source:
-            self.move_local(self.model_source_folder_path,
-                            self.local_job_folder_path)
+            self.move_local(self.model_source_folder_path, self.local_job_folder_path)
         else:
-            self.copy_local(self.model_source_folder_path,
-                            self.local_job_folder_path)
-        self.local_model_folder_path = os.path.join(self.local_job_folder_path,
-                                                    self.model_folder_name)
-        self.local_model_file_manager_path = os.path.join(self.local_model_folder_path,
-                                                          self.model_source_file_manager_rel_path)
+            self.copy_local(self.model_source_folder_path, self.local_job_folder_path)
+        self.local_model_folder_path = os.path.join(
+            self.local_job_folder_path, self.model_folder_name
+        )
+        self.local_model_file_manager_path = os.path.join(
+            self.local_model_folder_path, self.model_source_file_manager_rel_path
+        )
         # connection login remote
         self.connection.login()
 
-        self.singularity_home_folder_path = "/home/{}".format(self.connection.remote_user_name)
+        self.singularity_home_folder_path = "/home/{}".format(
+            self.connection.remote_user_name
+        )
         self.singularity_workspace_path = self.singularity_home_folder_path
-        self.singularity_job_folder_path = os.path.join(self.singularity_workspace_path, self.local_job_folder_name)
-        self.singularity_model_folder_path = os.path.join(self.singularity_job_folder_path, self.model_folder_name)
+        self.singularity_job_folder_path = os.path.join(
+            self.singularity_workspace_path, self.local_job_folder_name
+        )
+        self.singularity_model_folder_path = os.path.join(
+            self.singularity_job_folder_path, self.model_folder_name
+        )
 
         self.remote_workspace_path = self.connection.remote_user_home
         self.remote_job_folder_name = self.local_job_folder_name
-        self.remote_job_folder_path = os.path.join(self.remote_workspace_path,
-                                                   self.remote_job_folder_name)
-        self.remote_model_folder_path = os.path.join(self.remote_job_folder_path,
-                                                     self.model_folder_name)
+        self.remote_job_folder_path = os.path.join(
+            self.remote_workspace_path, self.remote_job_folder_name
+        )
+        self.remote_model_folder_path = os.path.join(
+            self.remote_job_folder_path, self.model_folder_name
+        )
 
-        user_script = SummaUserScript(self.singularity_job_folder_path,
-                                      self.model_folder_name,
-                                      self.model_file_manager_name)
+        user_script = SummaUserScript(
+            self.singularity_job_folder_path,
+            self.model_folder_name,
+            self.model_file_manager_name,
+        )
         self.sbatch_script.userscript_path = user_script
 
         # save SBatch script
-        self.sbatch_script.generate_script(local_folder_path=self.local_model_folder_path)
+        self.sbatch_script.generate_script(
+            local_folder_path=self.local_model_folder_path
+        )
         self.sbatch_script.remote_folder_path = self.remote_model_folder_path
 
         # replace local path with remote path
         # sbatch.sh: change userscript path to path in singularity
         # local workspace path -> singularity workspace path (singularity home directory)
-        self.replace_text_in_file(self.sbatch_script.local_path,
-                                  [(self.local_workspace_path, self.singularity_workspace_path)])
+        self.replace_text_in_file(
+            self.sbatch_script.local_path,
+            [(self.local_workspace_path, self.singularity_workspace_path)],
+        )
 
         # summa file_manager:
         # file manager uses model_source_folder_path
         # change to singularity_model_folder_path
-        self.replace_text_in_file(self.local_model_file_manager_path,
-                                  [(self.model_source_folder_path, self.singularity_model_folder_path)])
+        self.replace_text_in_file(
+            self.local_model_file_manager_path,
+            [(self.model_source_folder_path, self.singularity_model_folder_path)],
+        )
 
     def go(self):
         self.prepare()
@@ -243,21 +285,26 @@ class SummaKeelingJob(KeelingJob):
         self.post_submission()
 
     def download(self):
-        self.connection.download(os.path.join(self.remote_model_folder_path, "output"),
-                                 self.local_job_folder_path, remote_is_folder=True)
-        self.connection.download(self.remote_slurm_out_file_path, self.local_job_folder_path)
+        self.connection.download(
+            os.path.join(self.remote_model_folder_path, "output"),
+            self.local_job_folder_path,
+            remote_is_folder=True,
+        )
+        self.connection.download(
+            self.remote_slurm_out_file_path, self.local_job_folder_path
+        )
 
 
 class SummaCometJob(SummaKeelingJob):
     sbatch_script_class = SummaCometSBatchScript
 
     def post_submission(self):
-        gateway_username = os.getenv('JUPYTERHUB_USER')
+        gateway_username = os.getenv("JUPYTERHUB_USER")
         if gateway_username is None:
             gateway_username = "anonymous_user"
 
         # report gateway_user metric to XSEDE
-        xsede_key_path = os.getenv('XSEDE_KEY_PATH', "")
+        xsede_key_path = os.getenv("XSEDE_KEY_PATH", "")
         if len(str(xsede_key_path)) == 0:
             return
 
@@ -268,13 +315,18 @@ class SummaCometJob(SummaKeelingJob):
     --data-urlencode "submittime=$submittime" \
     https://xsede-xdcdb-api.xsede.org/gateway/v2/job_attributes'
 
-        parameter_kw = {"xsede_key_path": xsede_key_path,
-                        "gatewayuser": gateway_username,
-                        "jobid": self.remote_id,
-                        "submittime": datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")}
+        parameter_kw = {
+            "xsede_key_path": xsede_key_path,
+            "gatewayuser": gateway_username,
+            "jobid": self.remote_id,
+            "submittime": datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
+        }
 
         cmd = Template(cmd_template).substitute(parameter_kw)
         logger.debug(cmd)
-        logger.info("Metric sent to XSEDE: {gatewayuser}, {jobid}".format(gatewayuser=gateway_username,
-                                                                          jobid=self.remote_id))
+        logger.info(
+            "Metric sent to XSEDE: {gatewayuser}, {jobid}".format(
+                gatewayuser=gateway_username, jobid=self.remote_id
+            )
+        )
         out = self.connection.run_command(cmd)
