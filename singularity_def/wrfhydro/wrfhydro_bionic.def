@@ -1,4 +1,4 @@
 Bootstrap: docker
-From: zhiyuli/wrfhydro_conda:0.5
+From: zhiyuli/wrfhydro_conda_bionic:0.1
     
 
