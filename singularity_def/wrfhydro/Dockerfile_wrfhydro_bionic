@@ -123,6 +123,9 @@ RUN     apt-get update && \
         wget \
         zip \
         unzip \
+        net-tools \
+        netcat \
+        aria2 \
 	&& rm -rf /var/lib/apt/lists/* \
 	&& rm -rf /tmp/*
 
