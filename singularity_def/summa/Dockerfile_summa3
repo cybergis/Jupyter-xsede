@@ -1,0 +1,119 @@
+FROM ubuntu:xenial
+
+####################################
+########## ROOT USER  ##############
+####################################
+USER root
+
+####################################
+RUN apt-get update \
+	&& apt-get install -yq --no-install-recommends \
+	   software-properties-common \
+           build-essential \
+           gfortran \
+           wget \
+           git \
+        && apt upgrade -y
+
+RUN apt-get update \
+    && apt-get install -yq --no-install-recommends \
+    libhdf5-dev \
+    libnetcdf-dev \
+    libnetcdff-dev \
+    libblas-dev \
+    liblapack-dev \
+    netcdf-bin \
+    bash-completion \
+    netcat \
+    iputils-ping \
+    nano \
+    screen \
+    openssh-client \
+    zip \
+    unzip \
+    nco \
+    curl \
+    aria2 \
+    rsync \
+    lsb-release \
+    && apt-get clean
+
+RUN find /usr/lib -name libnetcdf* && find /usr/lib -name libblas* && find /usr/lib -name liblapack*
+
+## SUMMA
+ENV F_MASTER /tmp/summa
+ENV FC gfortran
+ENV FC_EXE gfortran
+ENV INCLUDES='-I/usr/include'
+ENV LIBRARIES='-L/usr/lib -lnetcdff -lblas -llapack'
+RUN git clone https://github.com/NCAR/summa.git /tmp/summa \
+    && cd /tmp/summa \
+    && git checkout 4ee457df3d3c0779696c6388c67962ba76736df9
+RUN cd /tmp/summa \
+    && make -C build \
+    && cp /tmp/summa/bin/summa.exe /usr/bin \
+    && chmod +x /usr/bin/summa.exe \
+    && cd /usr/bin \
+    && ./summa.exe --version \
+    && rm -rf /tmp/summa
+
+## just to be sure 
+RUN rm -rf /tmp/*
+
+###################################
+## create docker user
+RUN useradd -ms /bin/bash docker
+RUN usermod -aG sudo docker
+RUN chmod -R 777 /home/docker/
+
+###################################
+# Python 3.7 (Install py37 conda to avoid mpi4py issue, see below)
+RUN wget https://repo.continuum.io/miniconda/Miniconda3-py37_4.8.3-Linux-x86_64.sh \
+    && bash Miniconda3-py37_4.8.3-Linux-x86_64.sh -b -p /opt/miniconda3 \
+    && rm Miniconda3-py37_4.8.3-Linux-x86_64.sh \
+    && chown -R docker:docker /opt/miniconda3 
+
+#Set environment variables
+ENV PATH="/opt/miniconda3/bin:${PATH}"
+
+###################################
+
+# Install SUMMA conda env
+RUN wget https://raw.githubusercontent.com/UW-Hydro/pysumma/198fda932adbee2736cc57f062d412ffe9061fa5/environment.yml -O /tmp/pysumma_env.yml && \
+    sed -i 's/name: pysumma/name: base/g' /tmp/pysumma_env.yml && \
+    sed -i 's/- summa=3.0.0/#- summa=3.0.0/g' /tmp/pysumma_env.yml && \
+    sed -i 's/- python>=3.5/- python==3.7/g' /tmp/pysumma_env.yml && \
+    cat /tmp/pysumma_env.yml && \
+    /opt/miniconda3/bin/conda env update --name base -f /tmp/pysumma_env.yml
+
+RUN /opt/miniconda3/bin/python -m pip install --quiet git+https://github.com/UW-Hydro/pysumma.git@198fda932adbee2736cc57f062d412ffe9061fa5
+RUN /opt/miniconda3/bin/python -m pip install --quiet metsim
+
+## Possible Error on keeling when sbatch or srun submits a mpi4py-enabled python job in singularity container:
+## Example using sbatch
+## #SBATCH --ntasks=4
+## srun --mpi=pmi2 singularity exec PATH_TO_SINGULARITY_IMAGE python MPI4PY_ENABLED_PYTHON_SCRIPT
+## Example outside sbatch
+## srun -n 4 --mpi=pmi2 singularity exec PATH_TO_SINGULARITY_IMAGE python MPI4PY_ENABLED_PYTHON_SCRIPT
+## An error occurred in MPI_Init_thread on a NULL communicator MPI_ERRORS_ARE_FATAL 
+## (processes in this communicator will now abort, and potentially your MPI job)
+## Workaround: install specific "build" of MPI4py for Python3.7 on conda-forge: the one uses MPICH (not OpenMPI) as dependency
+## How to find specific MPI4py "build" on conda-forge repo
+## Goto https://anaconda.org/conda-forge/mpi4py/files
+## Search for "linux-aarch64/mpi4py-3.0.3-py37"
+## Click "!" icon and check "depends" field:  "mpich" (not "openmpi")
+## conda instal -c conda-forge mpi4py=<VERSION>=<BUILD_ID>
+RUN /opt/miniconda3/bin/conda install -c conda-forge mpi4py=3.0.3=py37h0c5ec45_2
+
+RUN mkdir -p /workspace && chmod -R 777 /workspace
+RUN chmod -R 777 /home/docker
+RUN chmod -R 777 /opt/miniconda3
+
+RUN mkdir -p /home/jovyan/work/workspace
+RUN chmod -R 777 /home
+
+# create a symbolic link to summa.exe being consistent with old summa singularity images
+RUN mkdir -p /code/bin && ln -s /usr/bin/summa.exe /code/bin/summa.exe
+
+USER docker
+WORKDIR /home/docker
