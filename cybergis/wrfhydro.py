@@ -244,7 +244,6 @@ class WRFHydroCometSBatchScript(WRFHydroKeelingSBatchScript):
 
 
 class WRFHydroCometJob(WRFHydroKeelingJob):
-    JOB_ID_PREFIX = "WRFHydro_"
     sbatch_script_class = WRFHydroCometSBatchScript
 
 
