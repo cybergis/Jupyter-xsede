@@ -6,48 +6,54 @@ from string import Template
 from .keeling import KeelingJob, KeelingSBatchScript
 from .base import BaseScript
 from .utils import get_logger
+from .connection import SSHConnection
 
 logger = get_logger()
 
 
 class SummaKeelingSBatchScript(KeelingSBatchScript):
 
-    name = "SummaKeelingSBatchScript"
     file_name = "summa.sbatch"
 
     SCRIPT_TEMPLATE = """#!/bin/bash
 #SBATCH --job-name=$jobname
 #SBATCH --ntasks=$ntasks
 #SBATCH --time=$walltime
+#SBATCH --partition=$partition
 
-srun --mpi=pmi2 singularity exec \
-   $simg_path \
-   python $userscript_path 
+## allocated hostnames
+echo $$SLURM_JOB_NODELIST
+
+$module_config
+
+srun --mpi=pmi2 singularity exec -B $remote_job_folder_path:/workspace \
+   $remote_singularity_img_path \
+   python /workspace/runSumma.py
+
+cp slurm-$$SLURM_JOB_ID.out $remote_model_folder_path/output
 """
-    simg_path = "/data/keeling/a/cigi-gisolve/simages/pysumma_ensemble.img_summa3"
 
-    def __init__(self, walltime, ntasks, jobname, userscript_path=None, *args, **kargs):
+    def __init__(self, walltime, ntasks, jobname,
+                 *args, **kargs):
 
         super().__init__(walltime, ntasks, jobname, None, *args, **kargs)
-        self.userscript_path = userscript_path
-        self.simg_path = self.simg_path
+        self.remote_workspace_folder_path = "/data/cigi/scratch/cigi-gisolve"
+        self.remote_singularity_img_path = "/data/keeling/a/cigi-gisolve/simages/pysumma_ensemble.img_summa3"
+        self.module_config = "module list"
+        self.partition = "node"  # node sesempi
 
 
 class SummaCometSBatchScript(SummaKeelingSBatchScript):
 
-    name = "SummaCometSBatchScript"
-
-    SCRIPT_TEMPLATE = """#!/bin/bash
-#SBATCH --job-name=$jobname
-#SBATCH --ntasks=$ntasks
-#SBATCH --time=$walltime
-
-module load singularity
-srun --mpi=pmi2 singularity exec \
-   $simg_path \
-   python $userscript_path 
-"""
-    simg_path = "/home/cybergis/SUMMA_IMAGE/pysumma_ensemble.img_summa3"
+    def __init__(self, walltime, ntasks, jobname,
+                 *args, **kargs):
+        super().__init__(walltime, ntasks, jobname, None, *args, **kargs)
+        # Lustre Comet scratch filesystem: /oasis/scratch/comet/$USER/temp_project
+        # see: https://www.sdsc.edu/support/user_guides/comet.html
+        self.remote_workspace_folder_path = "/oasis/scratch/comet/cybergis/temp_project"
+        self.remote_singularity_img_path = "/home/cybergis/SUMMA_IMAGE/pysumma_ensemble.img_summa3"
+        self.module_config = "module list && module load singularity/3.5 && module list"
+        self.partition = "compute"  # compute, shared
 
 
 class SummaUserScript(BaseScript):
@@ -69,7 +75,7 @@ hostname = MPI.Get_processor_name()
 print("{}/{}: {}".format(rank, size, hostname))
 
 job_folder_path = "$singularity_job_folder_path"
-instance = "$model_folder_name"
+instance = "$remote_model_folder_name"
 instance_path = os.path.join(job_folder_path, instance)
 json_path = os.path.join(job_folder_path, instance, "summa_options.json")
 
@@ -100,9 +106,9 @@ subprocess.run(
 comm.Barrier()
 
 # file manager path
-file_manager = os.path.join(new_instance_path, 'settings/summa_fileManager_riparianAspenSimpleResistance.txt')
+file_manager = os.path.join(new_instance_path, "$file_manager_rel_path")
 print(file_manager)
-executable = "/code/bin/summa.exe"
+executable = "/usr/bin/summa.exe"
 
 s = ps.Simulation(executable, file_manager)
 # fix setting_path to point to this worker
@@ -141,148 +147,82 @@ print("Done in {}/{} ".format(rank, size))
 
 """
 
-    singularity_job_folder_path = None
-    model_folder_name = None
-    file_manager_name = None
     file_name = "runSumma.py"
-
-    def __init__(
-        self,
-        singularity_job_folder_path,
-        model_folder_name,
-        file_manager_name,
-        *args,
-        **kargs
-    ):
-        super().__init__()
-        self.singularity_job_folder_path = singularity_job_folder_path
-        self.model_folder_name = model_folder_name
-        self.file_manager_name = file_manager_name
 
 
 class SummaKeelingJob(KeelingJob):
 
     JOB_ID_PREFIX = "Summa_"
     sbatch_script_class = SummaKeelingSBatchScript
-    user_script_class = SummaUserScript
-    localID = None
 
     def __init__(
         self,
         local_workspace_path,
+        local_model_source_folder_path,
         connection,
         sbatch_script,
-        model_source_folder_path,
-        model_source_file_manager_rel_path,
-        local_id=None,
-        move_source=False,
-        *args,
+        file_manager_rel_path=None,
         **kwargs
     ):
 
-        if local_id is None:
-            t = str(int(time.time()))
-            local_id = self.random_id(prefix=self.JOB_ID_PREFIX + "{}_".format(t))
-            self.localID = local_id
-
         super().__init__(
             local_workspace_path,
+            local_model_source_folder_path,
             connection,
             sbatch_script,
-            local_id=local_id,
-            *args,
             **kwargs
         )
 
         # Directory: "/Workspace/Job/Model/"
-        model_source_folder_path = self._check_abs_path(model_source_folder_path)
-        self.model_source_folder_path = model_source_folder_path
-        self.model_folder_name = os.path.basename(self.model_source_folder_path)
+        if file_manager_rel_path is None:
+            self.logger.error("33333333333333333333333")
+            self.logger.error(kwargs)
+            self.file_manager_rel_path = kwargs['file_manager_rel_path']
+        else:
+            self.file_manager_rel_path = file_manager_rel_path
 
-        self.model_source_file_manager_rel_path = model_source_file_manager_rel_path
         self.model_file_manager_name = os.path.basename(
-            self.model_source_file_manager_rel_path
+            self.file_manager_rel_path
         )
-        self.model_source_file_manager_path = os.path.join(
-            model_source_folder_path, self.model_source_file_manager_rel_path
+        self.local_model_source_file_manager_path = os.path.join(
+            self.local_model_source_folder_path, self.file_manager_rel_path
         )
 
-        self.move_source = move_source
-
-    def getlocalid(self):
-        return self.localID
 
     def prepare(self):
         # Directory: "/Workspace/Job/Model/"
 
-        # copy/move model folder to local job folder
-        if self.move_source:
-            self.move_local(self.model_source_folder_path, self.local_job_folder_path)
-        else:
-            self.copy_local(self.model_source_folder_path, self.local_job_folder_path)
-        self.local_model_folder_path = os.path.join(
-            self.local_job_folder_path, self.model_folder_name
-        )
         self.local_model_file_manager_path = os.path.join(
-            self.local_model_folder_path, self.model_source_file_manager_rel_path
+            self.local_model_folder_path, self.file_manager_rel_path
         )
-        # connection login remote
-        self.connection.login()
 
-        self.singularity_home_folder_path = "/home/{}".format(
-            self.connection.remote_user_name
-        )
-        self.singularity_workspace_path = self.singularity_home_folder_path
-        self.singularity_job_folder_path = os.path.join(
-            self.singularity_workspace_path, self.local_job_folder_name
-        )
+        self.singularity_workspace_path = "/workspace"
+        self.singularity_job_folder_path = self.singularity_workspace_path
         self.singularity_model_folder_path = os.path.join(
-            self.singularity_job_folder_path, self.model_folder_name
+            self.singularity_job_folder_path, self.remote_model_folder_name
         )
-
-        self.remote_workspace_path = self.connection.remote_user_home
-        self.remote_job_folder_name = self.local_job_folder_name
-        self.remote_job_folder_path = os.path.join(
-            self.remote_workspace_path, self.remote_job_folder_name
-        )
-        self.remote_model_folder_path = os.path.join(
-            self.remote_job_folder_path, self.model_folder_name
-        )
-
-        user_script = SummaUserScript(
-            self.singularity_job_folder_path,
-            self.model_folder_name,
-            self.model_file_manager_name,
-        )
-        self.sbatch_script.userscript_path = user_script
 
         # save SBatch script
         self.sbatch_script.generate_script(
-            local_folder_path=self.local_model_folder_path
+            local_folder_path=self.local_job_folder_path,
+            _additional_parameter_dict=self.to_dict()
         )
-        self.sbatch_script.remote_folder_path = self.remote_model_folder_path
+
+        # save user script
+        user_script = SummaUserScript()
+        user_script.generate_script(
+            local_folder_path=self.local_job_folder_path,
+            _additional_parameter_dict=self.to_dict()
+        )
 
         # replace local path with remote path
-        # sbatch.sh: change userscript path to path in singularity
-        # local workspace path -> singularity workspace path (singularity home directory)
-        self.replace_text_in_file(
-            self.sbatch_script.local_path,
-            [(self.local_workspace_path, self.singularity_workspace_path)],
-        )
-
         # summa file_manager:
-        # file manager uses model_source_folder_path
+        # file manager uses local_model_source_folder_path
         # change to singularity_model_folder_path
         self.replace_text_in_file(
             self.local_model_file_manager_path,
-            [(self.model_source_folder_path, self.singularity_model_folder_path)],
+            [(self.local_model_source_folder_path, self.singularity_model_folder_path)],
         )
-
-    def go(self):
-        self.prepare()
-        self.upload()
-        self.submit()
-        self.post_submission()
 
     def download(self):
         self.connection.download(
@@ -330,3 +270,52 @@ class SummaCometJob(SummaKeelingJob):
             )
         )
         out = self.connection.run_command(cmd)
+
+
+def SummaSubmission(workspace, mode_source_folder_path, nodes, wtime,
+                       hpc="keeling",
+                       key=None, user=None, passwd=None,
+                    file_manager_rel_path=""):
+
+    server_url = "keeling.earth.illinois.edu"
+    user_name = "cigi-gisolve"
+    SummaSBatchScriptClass = SummaKeelingSBatchScript
+    SummaJobClass = SummaKeelingJob
+
+    if hpc == "comet":
+        server_url = "comet.sdsc.edu"
+        user_name = "cybergis"
+        SummaSBatchScriptClass = SummaCometSBatchScript
+        SummaJobClass = SummaCometJob
+    if user is not None:
+        user_name = user
+
+    con = SSHConnection(server_url,
+                                user_name=user_name,
+                                key_path=key,
+                                user_pw=passwd)
+
+    summa_sbatch = SummaSBatchScriptClass(wtime, nodes, "summa")
+
+    local_workspace_folder_path = workspace
+    local_model_source_folder_path = mode_source_folder_path
+    job = SummaJobClass(local_workspace_folder_path, local_model_source_folder_path,
+                           con, summa_sbatch,
+                             name="Summa",
+                        file_manager_rel_path=file_manager_rel_path)
+    job.go()
+
+    for i in range(600):
+        time.sleep(3)
+        status = job.job_status()
+        if status == "ERROR":
+            logger.info("Job status ERROR")
+            break
+        elif status == "C" or status == "UNKNOWN":
+            logger.info("Job completed: {}; {}".format(job.local_id, job.remote_id))
+            job.download()
+            break
+        else:
+            logger.info(status)
+    logger.info("Done")
+    return job.local_job_folder_path
