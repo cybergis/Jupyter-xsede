@@ -28,36 +28,21 @@ class BaseConnection(object):
 
 
 class BaseScript(object):
-    name = "BaseScript"
     file_name = "script.sh"
-    _local_path = ""
-    remote_folder_path = ""
     SCRIPT_TEMPLATE = str()
 
     def __init__(self):
         self.logger = get_logger()
 
-    @property
-    def local_path(self):
-        return self._local_path
-
-    def remote_folder_name(self):
-        return os.path.basename(self.remote_folder_path)
-
     def parameter_dict(self, *args, **kwargs):
         return self.__dict__
 
-    def generate_script(self, local_folder_path=None, _parameter_dict=None):
+    def generate_script(self, local_folder_path=None, _additional_parameter_dict=None):
         local_folder_path = str(local_folder_path)
         parameter_dict = self.parameter_dict()
         self.logger.info(parameter_dict)
-        if isinstance(_parameter_dict, dict):
-            parameter_dict = parameter_dict.update(_parameter_dict)
-
-        for k, v in parameter_dict.items():
-            if isinstance(v, BaseScript):
-                script_path = v.generate_script(local_folder_path)
-                parameter_dict[k] = script_path
+        if isinstance(_additional_parameter_dict, dict):
+            parameter_dict.update(_additional_parameter_dict)
 
         self.logger.debug(self.SCRIPT_TEMPLATE)
         self.logger.debug(parameter_dict)
@@ -66,12 +51,12 @@ class BaseScript(object):
         )
         self.logger.debug(script)
         if os.path.isdir(local_folder_path):
-            self._local_path = os.path.join(local_folder_path, self.file_name)
-            with open(self._local_path, 'w') as f:
+            _local_path = os.path.join(local_folder_path, self.file_name)
+            with open(_local_path, 'w') as f:
                 f.write(script)
-            os.chmod(self._local_path, 0o775)
-            self.logger.debug("{} saved to {}".format(self.name, self.local_path))
-            return self._local_path
+            os.chmod(_local_path, 0o775)
+            self.logger.debug("{} saved to {}".format(self.name, _local_path))
+            return _local_path
         else:
             return script
 

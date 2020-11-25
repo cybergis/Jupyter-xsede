@@ -1,8 +1,10 @@
 import os
+import time
 
 from .keeling import KeelingJob, KeelingSBatchScript
 from .base import BaseScript
 from .utils import get_logger
+from .connection import SSHConnection
 
 logger = get_logger()
 
@@ -35,7 +37,6 @@ class WRFHydroKeelingSBatchScript(KeelingSBatchScript):
     object by job_index. The Jobs will run in the same order in which they were stored.
     '''
 
-    name = "WRFHydroKeelingSBatchScript"
     file_name = "wrfhydro.sbatch"
 
     SCRIPT_TEMPLATE = \
@@ -52,15 +53,15 @@ echo $$SLURM_JOB_NODELIST
 $module_config
 
 ## compile mode from source
-singularity exec -B $remote_workspace_path/$job_folder_name:/workspace $remote_singularity_img_path python /workspace/compile_wrfhydro.py
+singularity exec -B $remote_job_folder_path:/workspace $remote_singularity_img_path python /workspace/compile_wrfhydro.py
   
 ## change wrf_hydro.exe permission
-chmod +x $remote_workspace_path/$job_folder_name/$model_folder_name/wrf_hydro.exe
+chmod +x $remote_model_folder_path/wrf_hydro.exe
 
 ## count number of folders job_xxxx
 ## $$ is to escape single dollar sign, which are used as bash variables later
 ## See: https://docs.python.org/2.4/lib/node109.html
-job_num=$$(find $remote_workspace_path/$job_folder_name/$model_folder_name/job_* -type d | wc -l)
+job_num=$$(find $remote_model_folder_path/job_* -type d | wc -l)
 
 ## see: https://docs.nersc.gov/jobs/examples/#multiple-parallel-jobs-sequentially
 ## loop through 0 -- job_num-1
@@ -69,10 +70,10 @@ do
   echo $$job_index
   
   ## parallel run
-  srun --mpi=pmi2 singularity exec -B $remote_workspace_path/$job_folder_name:/workspace $remote_singularity_img_path python /workspace/run_mpi_call_singularity.py $$job_index
+  srun --mpi=pmi2 singularity exec -B $remote_job_folder_path:/workspace $remote_singularity_img_path python /workspace/run_mpi_call_singularity.py $$job_index
   
   ## sequential run for testing
-  ## singularity exec -B $remote_workspace_path/$job_folder_name:/workspace $remote_singularity_img_path python /workspace/run_mpi_call_singularity.py $$job_index
+  ## singularity exec -B $remote_job_folder_path:/workspace $remote_singularity_img_path python /workspace/run_mpi_call_singularity.py $$job_index
 
   if [ $$job_index -lt $$((job_num-1)) ]
     then
@@ -81,18 +82,15 @@ do
   fi
 done
 
-singularity exec -B $remote_workspace_path/$job_folder_name:/workspace $remote_singularity_img_path python /workspace/copy_outputs.py
+singularity exec -B $remote_job_folder_path:/workspace $remote_singularity_img_path python /workspace/copy_outputs.py
 
 '''
 
     def __init__(self, walltime, ntasks, jobname,
-                 job_folder_name=None,
                  *args, **kargs):
 
         super().__init__(walltime, ntasks, jobname, None, *args, **kargs)
-        self.job_folder_name = job_folder_name
-        #self.remote_workspace_path = "/data/keeling/a/cigi-gisolve"
-        self.remote_workspace_path = "/data/cigi/scratch/cigi-gisolve"
+        self.remote_workspace_folder_path = "/data/cigi/scratch/cigi-gisolve"
         self.remote_singularity_img_path = "/data/keeling/a/cigi-gisolve/simages/wrfhydro_xenial.simg"
 
         self.module_config = "module list"
@@ -100,7 +98,6 @@ singularity exec -B $remote_workspace_path/$job_folder_name:/workspace $remote_s
 
 
 class WRFHydroUserScript(BaseScript):
-    name = "WRFHydroUserScript"
     file_name = "run_mpi_call_singularity.py"
 
     SCRIPT_TEMPLATE = \
@@ -116,7 +113,7 @@ print ('Argument List:', str(sys.argv))
 
 job_index = int(sys.argv[1])
 
-folder = pathlib.Path("/workspace/$model_folder_name")
+folder = pathlib.Path("/workspace/$remote_model_folder_name")
 # pickle obj has the jobs in right order
 pickle_file = folder / "simulation.pkl"
 
@@ -127,17 +124,16 @@ job = sim.jobs[job_index]
 pprint("==================   Working on {job_id}  ===================".format(job_id=job.job_id))
 
 # side-effect: all processes to do the same copying, which is ok for now
-os.system('cp /workspace/$model_folder_name/job_{job_id}/* /workspace/$model_folder_name/'.format(job_id=job.job_id))
-os.system('cd /workspace/$model_folder_name && ./wrf_hydro.exe')
+os.system('cp /workspace/$remote_model_folder_name/job_{job_id}/* /workspace/$remote_model_folder_name/'.format(job_id=job.job_id))
+os.system('cd /workspace/$remote_model_folder_name && ./wrf_hydro.exe')
 
 pprint("==================  Done with {job_id}  ===================".format(job_id=job.job_id))
 exit()
 
-
 '''
 
+
 class WRFHydroUserScript2(BaseScript):
-    name = "WRFHydroUserScript2"
     file_name = "copy_outputs.py"
 
     SCRIPT_TEMPLATE = \
@@ -155,7 +151,7 @@ if not os.path.exists(output_folder_path):
     os.makedirs(output_folder_path)
 try:    
     output = wrfhydropy.core.simulation.SimulationOutput()
-    output.collect_output(sim_dir="/workspace/$model_folder_name")
+    output.collect_output(sim_dir="/workspace/$remote_model_folder_name")
     for key, val in output.__dict__.items():
         for path in val:
             #shutil.copyfile(str(path), os.path.join(output_folder_path, os.path.basename(str(path))))
@@ -163,16 +159,15 @@ try:
 except Exception:
     pass
 os.system("cp /workspace/slurm* /workspace/output/")
-os.system("cp /workspace/$model_folder_name/diag* /workspace/output/")
-os.system("cp /workspace/$model_folder_name/*stdout /workspace/output/")
-os.system("cp /workspace/$model_folder_name/*stderr /workspace/output/")
-os.system("cp /workspace/$model_folder_name/*.exe /workspace/output/")
-os.system("cp /workspace/$model_folder_name/*.pkl /workspace/output/")
+os.system("cp /workspace/$remote_model_folder_name/diag* /workspace/output/")
+os.system("cp /workspace/$remote_model_folder_name/*stdout /workspace/output/")
+os.system("cp /workspace/$remote_model_folder_name/*stderr /workspace/output/")
+os.system("cp /workspace/$remote_model_folder_name/*.exe /workspace/output/")
+os.system("cp /workspace/$remote_model_folder_name/*.pkl /workspace/output/")
 '''
 
 
 class WRFHydroUserScript3(BaseScript):
-    name = "WRFHydroUserScript3"
     file_name = "compile_wrfhydro.py"
 
     SCRIPT_TEMPLATE = \
@@ -184,8 +179,8 @@ import pickle
 import tempfile
 
 
-in_model_pkl = '/workspace/$model_folder_name/WrfHydroModel.pkl'
-out_folder = '/workspace/$model_folder_name'
+in_model_pkl = '/workspace/$remote_model_folder_name/WrfHydroModel.pkl'
+out_folder = '/workspace/$remote_model_folder_name'
 repo = "https://github.com/NCAR/wrf_hydro_nwm_public.git"
 
 model = pickle.load(pathlib.Path(in_model_pkl).open('rb'))
@@ -216,137 +211,43 @@ class WRFHydroKeelingJob(KeelingJob):
 
     JOB_ID_PREFIX = "WRFHydro_"
     sbatch_script_class = WRFHydroKeelingSBatchScript
-    user_script_class = WRFHydroUserScript
-    localID = None
-
-    def __init__(self, local_workspace_path, connection, sbatch_script,
-                 model_source_folder_path,
-                 local_id=None,
-                 move_source=False,
-                 *args, **kwargs):
-
-        if local_id is None:
-            t = str(int(time.time()))
-            local_id = self.random_id(prefix=self.JOB_ID_PREFIX + "{}_".format(t))
-            self.localID=local_id
-
-        super().__init__(local_workspace_path, connection, sbatch_script, local_id=local_id, *args, **kwargs)
-
-        # fix symbolic here (not required as shutil.copytree() already resolves symbolics to real files)
-        # https://www.thetopsites.net/article/52124943.shtml
-        # rsync symdir/ symdir_output/ -a --copy-links -v
-
-        # Directory: "/Workspace/Job/Model/"
-        model_source_folder_path = self._check_abs_path(model_source_folder_path)
-        self.model_source_folder_path = model_source_folder_path
-        self.model_folder_name = os.path.basename(self.model_source_folder_path)
-        self.move_source = move_source
-        self.remote_workspace_path = sbatch_script.remote_workspace_path
-
-    def getlocalid(self):
-        return self.localID
 
     def prepare(self):
+        ## Save sbatch script and user scripts to local job or model folder
         # Local Directory: "/Workspace/Job/Model/"
-
-        # copy/move model folder to local job folder
-        if self.move_source:
-            self.move_local(self.model_source_folder_path,
-                            self.local_job_folder_path)
-        else:
-            self.copy_local(self.model_source_folder_path,
-                            self.local_job_folder_path)
-        self.local_model_folder_path = os.path.join(self.local_job_folder_path,
-                                                    self.model_folder_name)
-
-        self.logger.info(self.local_model_folder_path)
-
-        # connection login remote
-        self.connection.login()
-
-        self.remote_job_folder_name = self.local_job_folder_name
-        self.remote_job_folder_path = os.path.join(self.remote_workspace_path,
-                                                   self.remote_job_folder_name)
-        self.remote_model_folder_path = os.path.join(self.remote_job_folder_path,
-                                                     self.model_folder_name)
-
-        self.logger.info(self.remote_job_folder_name)
-        self.logger.info(self.model_folder_name)
-
-
-        user_script = WRFHydroUserScript()
-        user_script.model_folder_name = self.model_folder_name
-        user_script.generate_script(local_folder_path=self.local_job_folder_path)
-
-        user_script2 = WRFHydroUserScript2()
-        user_script2.model_folder_name = self.model_folder_name
-        user_script2.generate_script(local_folder_path=self.local_job_folder_path)
-
-        user_script3 = WRFHydroUserScript3()
-        user_script3.model_folder_name = self.model_folder_name
-        user_script3.generate_script(local_folder_path=self.local_job_folder_path)
-
         # save SBatch script
-        self.sbatch_script.job_folder_name = self.local_job_folder_name
-        self.sbatch_script.model_folder_name = self.model_folder_name
-        self.sbatch_script.generate_script(local_folder_path=self.local_job_folder_path)
-        self.sbatch_script.remote_folder_path = self.remote_job_folder_path
-
-
-
-    def go(self):
-        self.prepare()
-        self.upload()
-        self.submit()
-        self.post_submission()
+        self.sbatch_script.generate_script(local_folder_path=self.local_job_folder_path,
+                                           _additional_parameter_dict=self.to_dict())
+        # save user scripts
+        user_scripts = [WRFHydroUserScript(), WRFHydroUserScript2(), WRFHydroUserScript3()]
+        for user_script in user_scripts:
+            user_script.generate_script(local_folder_path=self.local_job_folder_path,
+                                        _additional_parameter_dict=self.to_dict())
 
     def download(self):
         self.connection.download(os.path.join(self.remote_job_folder_path, "output"),
                                  self.local_job_folder_path, remote_is_folder=True)
         self.connection.download(self.remote_slurm_out_file_path, self.local_job_folder_path)
 
-    def submit(self):
-        # submit job to HPC scheduler
-
-        self.remote_run_sbatch_folder_path = self.sbatch_script.remote_folder_path
-        self.logger.info("Submitting Job {} to queue".format(self.sbatch_script.file_name))
-        cmd = "cd {} && sbatch {}".format(self.remote_run_sbatch_folder_path,
-                                          self.sbatch_script.file_name)
-
-        out = self.connection.run_command(cmd)
-        remote_id = self._save_remote_id(out)
-        self.logger.info("Remote Job ID assigned: {}".format(remote_id))
-        self.slurm_out_file_name = "slurm-{}.out".format(remote_id)
-        self.remote_slurm_out_file_path = os.path.join(self.remote_run_sbatch_folder_path,
-                                                       self.slurm_out_file_name)
-
 
 class WRFHydroCometSBatchScript(WRFHydroKeelingSBatchScript):
-    name = "WRFHydroCometSBatchScript"
 
     def __init__(self, walltime, ntasks, jobname,
-                 job_folder_name=None,
                  *args, **kargs):
         super().__init__(walltime, ntasks, jobname, None, *args, **kargs)
-        self.job_folder_name = job_folder_name
         # Lustre Comet scratch filesystem: /oasis/scratch/comet/$USER/temp_project
         # see: https://www.sdsc.edu/support/user_guides/comet.html
-        self.remote_workspace_path = "/oasis/scratch/comet/cybergis/temp_project"
+        self.remote_workspace_folder_path = "/oasis/scratch/comet/cybergis/temp_project"
         self.remote_singularity_img_path = "/home/cybergis/SUMMA_IMAGE/wrfhydro_xenial.simg"
         self.module_config = "module list && module load singularity/3.5 && module list"
         self.partition = "compute"  # compute, shared
 
 
 class WRFHydroCometJob(WRFHydroKeelingJob):
-
-    JOB_ID_PREFIX = "WRFHydro_"
     sbatch_script_class = WRFHydroCometSBatchScript
 
 
-
-import time
-from .connection import SSHConnection
-def WRFHydroSubmission(workspace, mode_path, nodes, wtime,
+def WRFHydroSubmission(workspace, mode_source_folder_path, nodes, wtime,
                        hpc="keeling",
                        key=None, user=None, passwd=None):
 
@@ -370,14 +271,13 @@ def WRFHydroSubmission(workspace, mode_path, nodes, wtime,
 
     wrfhydro_sbatch = WRFHydroSBatchScriptClass(wtime, nodes, "wrfhydro")
 
-    local_workspace_path = workspace
-    model_source_folder_path = mode_path
-    job = WRFHydroJobClass(local_workspace_path, con, wrfhydro_sbatch, model_source_folder_path,
+    local_workspace_folder_path = workspace
+    local_model_source_folder_path = mode_source_folder_path
+    job = WRFHydroJobClass(local_workspace_folder_path, local_model_source_folder_path,
+                           con, wrfhydro_sbatch,
                              name="WRFHydro")
     job.go()
 
-    job_local_id = job.local_id
-    job_remote_id = job.remote_id
     for i in range(600):
         time.sleep(3)
         status = job.job_status()

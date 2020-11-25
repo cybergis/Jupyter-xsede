@@ -11,4 +11,6 @@ from .shapefile import *
 from .summaSupervisor import *
 from .wrfhydro import *
 from .wrfhydroSupervisor import *
-
+from .baseSupervisorToHPC import *
+from .helloworld import *
+from .helloworldSupervisor import *

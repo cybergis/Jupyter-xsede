@@ -3,4 +3,4 @@
 # export MYTMP=/var/tmp && rm -rvf $MYTMP/* && export SINGULARITY_LOCALCACHEDIR=$MYTMP && export SINGULARITY_CACHEDIR=$MYTMP && export SINGULARITY_TMPDIR=$MYTMP
 
 Bootstrap: docker
-From: zhiyuli/summa3_conda_xenial:0.1
+From: zhiyuli/summa3_conda_xenial:0.2
