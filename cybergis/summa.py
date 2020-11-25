@@ -38,7 +38,7 @@ cp slurm-$$SLURM_JOB_ID.out $remote_model_folder_path/output
 
         super().__init__(walltime, ntasks, jobname, None, *args, **kargs)
         self.remote_workspace_folder_path = "/data/cigi/scratch/cigi-gisolve"
-        self.remote_singularity_img_path = "/data/keeling/a/cigi-gisolve/simages/pysumma_ensemble.img_summa3"
+        self.remote_singularity_img_path = "/data/keeling/a/cigi-gisolve/simages/summa3_xenial.simg"
         self.module_config = "module list"
         self.partition = "node"  # node sesempi
 
@@ -51,7 +51,7 @@ class SummaCometSBatchScript(SummaKeelingSBatchScript):
         # Lustre Comet scratch filesystem: /oasis/scratch/comet/$USER/temp_project
         # see: https://www.sdsc.edu/support/user_guides/comet.html
         self.remote_workspace_folder_path = "/oasis/scratch/comet/cybergis/temp_project"
-        self.remote_singularity_img_path = "/home/cybergis/SUMMA_IMAGE/pysumma_ensemble.img_summa3"
+        self.remote_singularity_img_path = "/home/cybergis/SUMMA_IMAGE/summa3_xenial.simg"
         self.module_config = "module list && module load singularity/3.5 && module list"
         self.partition = "compute"  # compute, shared
 
@@ -175,8 +175,6 @@ class SummaKeelingJob(KeelingJob):
 
         # Directory: "/Workspace/Job/Model/"
         if file_manager_rel_path is None:
-            self.logger.error("33333333333333333333333")
-            self.logger.error(kwargs)
             self.file_manager_rel_path = kwargs['file_manager_rel_path']
         else:
             self.file_manager_rel_path = file_manager_rel_path
@@ -187,7 +185,6 @@ class SummaKeelingJob(KeelingJob):
         self.local_model_source_file_manager_path = os.path.join(
             self.local_model_source_folder_path, self.file_manager_rel_path
         )
-
 
     def prepare(self):
         # Directory: "/Workspace/Job/Model/"
