@@ -1,20 +1,17 @@
 import os
 
-from .keeling import KeelingJob, KeelingSBatchScript
+from .job import SlurmJob
+from .keeling import KeelingSBatchScript
+from .comet import CometSBatchScript
 from .base import BaseScript
 from .utils import get_logger
 
 logger = get_logger()
 
-
-class HelloWorldKeelingSBatchScript(KeelingSBatchScript):
-
-    file_name = "helloworld.sbatch"
-
-    SCRIPT_TEMPLATE = \
+HELLOWORLD_SBATCH_SCRIPT_TEMPLATE = \
 '''#!/bin/bash
 
-#SBATCH --job-name=$jobname
+#SBATCH --job-name=$job_name
 #SBATCH --ntasks=$ntasks
 #SBATCH --time=$walltime
 
@@ -27,17 +24,7 @@ python helloworld.py $remote_model_folder_path/in.txt $remote_job_folder_path/ou
 cp slurm-$$SLURM_JOB_ID.out $remote_job_folder_path/output
 '''
 
-    def __init__(self, walltime, ntasks, jobname,
-                 *args, **kargs):
-
-        super().__init__(walltime, ntasks, jobname, None, *args, **kargs)
-        self.remote_workspace_folder_path = "/data/cigi/scratch/cigi-gisolve"
-
-
-class HelloWorldUserScript(BaseScript):
-    file_name = "helloworld.py"
-
-    SCRIPT_TEMPLATE = \
+HELLOWORLD_USER_SCRIPT_TEMPLATE = \
 '''
 import os
 import sys
@@ -52,9 +39,21 @@ with open(out_path, "w") as fout:
 '''
 
 
-class HelloWorldKeelingJob(KeelingJob):
+class HelloWorldKeelingSBatchScript(KeelingSBatchScript):
 
-    JOB_ID_PREFIX = "HelloWorld_"
+    file_name = "helloworld.sbatch"
+    SCRIPT_TEMPLATE = HELLOWORLD_SBATCH_SCRIPT_TEMPLATE
+
+
+class HelloWorldUserScript(BaseScript):
+
+    file_name = "helloworld.py"
+    SCRIPT_TEMPLATE = HELLOWORLD_USER_SCRIPT_TEMPLATE
+
+
+class HelloWorldKeelingJob(SlurmJob):
+
+    job_name = "HelloWorld"
     sbatch_script_class = HelloWorldKeelingSBatchScript
 
     def prepare(self):
@@ -71,15 +70,61 @@ class HelloWorldKeelingJob(KeelingJob):
                                  self.local_job_folder_path, remote_is_folder=True)
 
 
-class HelloWorldCometSBatchScript(HelloWorldKeelingSBatchScript):
+class HelloWorldCometSBatchScript(CometSBatchScript):
 
-    def __init__(self, walltime, ntasks, jobname,
-                 *args, **kargs):
-        super().__init__(walltime, ntasks, jobname, None, *args, **kargs)
-        # Lustre Comet scratch filesystem: /oasis/scratch/comet/$USER/temp_project
-        # see: https://www.sdsc.edu/support/user_guides/comet.html
-        self.remote_workspace_folder_path = "/oasis/scratch/comet/cybergis/temp_project"
+    file_name = "helloworld.py"
+    SCRIPT_TEMPLATE = HELLOWORLD_USER_SCRIPT_TEMPLATE
 
 
 class HelloWorldCometJob(HelloWorldKeelingJob):
+
     sbatch_script_class = HelloWorldCometSBatchScript
+
+
+from .connection import SSHConnection
+import time
+
+def submit(workspace, mode_source_folder_path, nodes, wtime,
+                       hpc="keeling",
+                       key=None, user=None, passwd=None, **kwargs):
+
+    server_url = "keeling.earth.illinois.edu"
+    user_name = "cigi-gisolve"
+    SBatchScriptClass = HelloWorldKeelingSBatchScript
+    JobClass = HelloWorldKeelingJob
+
+    if hpc == "comet":
+        server_url = "comet.sdsc.edu"
+        user_name = "cybergis"
+        SBatchScriptClass = HelloWorldCometSBatchScript
+        JobClass = HelloWorldCometJob
+    if user is not None:
+        user_name = user
+
+    con = SSHConnection(server_url,
+                                user_name=user_name,
+                                key_path=key,
+                                user_pw=passwd)
+
+    sbatch = SBatchScriptClass(wtime, nodes)
+
+    local_workspace_folder_path = workspace
+    local_model_source_folder_path = mode_source_folder_path
+    job = JobClass(local_workspace_folder_path, local_model_source_folder_path,
+                           con, sbatch)
+    job.go()
+
+    for i in range(600):
+        time.sleep(3)
+        status = job.job_status()
+        if status == "ERROR":
+            logger.info("Job status ERROR")
+            break
+        elif status == "C" or status == "UNKNOWN":
+            logger.info("Job completed: {}; {}".format(job.local_id, job.remote_id))
+            job.download()
+            break
+        else:
+            logger.info(status)
+    logger.info("Done")
+    return job.local_job_folder_path

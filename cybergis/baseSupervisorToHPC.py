@@ -13,8 +13,6 @@ class BaseSupervisorToHPC(object):
     _CometSBatchScriptClass = SBatchScript
     _CometJobClass = SlurmJob
 
-    jobname = "SupervisorJob"
-
     def __init__(self,
                  parameters,
                  username="cigi-gisolve",
@@ -82,8 +80,6 @@ class BaseSupervisorToHPC(object):
 
     def submit(self, **kargs):
 
-        self.logger.error("summa submit222222222222222")
-        self.logger.error(kargs)
         _SBatchScriptClass = self.__class__._KeelingSBatchScriptClass
         _JobClass = self.__class__._KeelingJobClass
 
@@ -92,7 +88,7 @@ class BaseSupervisorToHPC(object):
             _JobClass = self.__class__._CometJobClass
 
         _sbatch_obj = _SBatchScriptClass(
-            int(self.wt), self.node, self.jobname
+            int(self.wt), self.node
         )
 
         job = _JobClass(
@@ -100,7 +96,6 @@ class BaseSupervisorToHPC(object):
             self.model_source_folder_path,
             self.connection,
             _sbatch_obj,
-            name=self.jobname,
             **kargs
         )
 
@@ -115,27 +110,7 @@ class BaseSupervisorToHPC(object):
         }
 
     def job_status(self, remote_id):
-        # Keeling has both squeue (slurm) and qstat (pbs) for queue management
-        # Based our test, however, squeue Can Not show Completed jobs and kicks job off
-        # queue record very soon. So it is hard to tell if a run is completed or does not exist
-        # So we use qstat (pbs) to monitor job status
-        # get current hpc time and job status (remove line 1 and 3)
-        cmd = "qstat {}".format(remote_id)
-
-        try:
-            out = self.connection.run_command(
-                cmd, line_delimiter=None, raise_on_error=True
-            )
-            if out is None:
-                return "UNKNOWN"
-            # out = \
-            # ['Job id              Name             Username        Time Use S Queue          ',
-            # '------------------- ---------------- --------------- -------- - ---------------',
-            # '3142249             singularity      cigi-gisolve    00:00:00 R node           ']
-
-            return out[2].split()[-2]
-        except Exception as ex:
-            return "ERROR"
+        return SlurmJob.job_status_pbs(None, remote_id, self.connection)
 
     def download(
         self,

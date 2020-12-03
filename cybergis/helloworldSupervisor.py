@@ -5,8 +5,6 @@ from .helloworld import HelloWorldKeelingSBatchScript, HelloWorldKeelingJob, \
 
 class HelloWorldSupervisorToHPC(BaseSupervisorToHPC):
 
-    jobname = "helloworld"
-
     _KeelingSBatchScriptClass = HelloWorldKeelingSBatchScript
     _KeelingJobClass = HelloWorldKeelingJob
     _CometSBatchScriptClass = HelloWorldCometSBatchScript

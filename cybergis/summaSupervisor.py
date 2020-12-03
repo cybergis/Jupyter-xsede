@@ -5,8 +5,6 @@ from .summa import SummaKeelingSBatchScript, SummaKeelingJob, \
 
 class SummaSupervisorToHPC(BaseSupervisorToHPC):
 
-    jobname = "summa"
-
     _KeelingSBatchScriptClass = SummaKeelingSBatchScript
     _KeelingJobClass = SummaKeelingJob
     _CometSBatchScriptClass = SummaCometSBatchScript

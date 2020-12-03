@@ -55,7 +55,7 @@ class BaseScript(object):
             with open(_local_path, 'w') as f:
                 f.write(script)
             os.chmod(_local_path, 0o775)
-            self.logger.debug("{} saved to {}".format(self.name, _local_path))
+            self.logger.debug("{} saved to {}".format(self.file_name, _local_path))
             return _local_path
         else:
             return script
@@ -71,12 +71,11 @@ class BaseJob(object):
 
 
 class SBatchScript(BaseScript):
-    name = "SBatchScript"
     file_name = "job.sbatch"
 
     SCRIPT_TEMPLATE = \
 '''#!/bin/bash
-#SBATCH --job-name=$jobname
+#SBATCH --job-name=$job_name
 #SBATCH --ntasks=$ntasks
 #SBATCH --time=$walltime
 
@@ -85,16 +84,16 @@ srun $exe'''
     # see: https://slurm.schedmd.com/sbatch.html
     walltime = "01:00:00"   # 1 hour
     ntasks = int(1)  # number of task
-    jobname = ""
+    job_name = ""
     stdout = None  # Path to output
     stderr = None  # Path to err
     exe = ""
 
-    def __init__(self, walltime_hour, ntasks, jobname, exe, stdout=None, stderr=None):
+    def __init__(self, walltime_hour, ntasks, name="sbatch", exe=None, stdout=None, stderr=None):
         super().__init__()
         self.walltime = "{:02d}:00:00".format(int(walltime_hour))
         self.ntasks = ntasks
-        self.jobname = jobname
+        self.job_name = name
         self.exe = exe
         self.stdout = stdout
         self.stderr = stderr
