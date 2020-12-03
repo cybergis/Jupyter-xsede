@@ -11,9 +11,8 @@ logger = get_logger()
 
 class CometSBatchScript(SBatchScript):
 
-    def __init__(self, walltime, ntasks, jobname,
-                 *args, **kargs):
-        super().__init__(walltime, ntasks, jobname, None, *args, **kargs)
+    def __init__(self, walltime, ntasks, *args, **kargs):
+        super().__init__(walltime, ntasks, *args, **kargs)
         # Lustre Comet scratch filesystem: /oasis/scratch/comet/$USER/temp_project
         # see: https://www.sdsc.edu/support/user_guides/comet.html
         self.remote_workspace_folder_path = "/oasis/scratch/comet/cybergis/temp_project"
