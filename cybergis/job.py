@@ -67,7 +67,8 @@ class SlurmJob(UtilsMixin, BaseJob):
         if local_id is None:
             t = str(int(time.time()))
             local_id = self.random_id(prefix=self.job_name + "_{}_".format(t))
-            self.localID = local_id
+        else:
+            local_id = "{}_{}".format(self.job_name, local_id)
 
         # local job id
         self.local_id = local_id

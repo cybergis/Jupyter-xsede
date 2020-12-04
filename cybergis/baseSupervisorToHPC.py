@@ -47,6 +47,10 @@ class BaseSupervisorToHPC(object):
             self.wt = parameters["walltime"]
         except:
             pass
+        try:
+            self.jobid = parameters["jobid"]
+        except:
+            self.jobid = None
 
     def connect(self):
 
@@ -95,6 +99,7 @@ class BaseSupervisorToHPC(object):
             self.model_source_folder_path,
             self.connection,
             _sbatch_obj,
+            local_id=self.jobid,
             **kargs
         )
 

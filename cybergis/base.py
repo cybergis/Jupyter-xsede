@@ -40,7 +40,7 @@ class BaseScript(object):
     def generate_script(self, local_folder_path=None, _additional_parameter_dict=None):
         local_folder_path = str(local_folder_path)
         parameter_dict = self.parameter_dict()
-        self.logger.info(parameter_dict)
+        self.logger.debug(parameter_dict)
         if isinstance(_additional_parameter_dict, dict):
             parameter_dict.update(_additional_parameter_dict)
 
