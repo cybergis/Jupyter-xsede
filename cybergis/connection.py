@@ -27,7 +27,7 @@ class SSHConnection(UtilsMixin, BaseConnection):
         self._client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         self.user_name = user_name
         self.user_pw = user_pw
-        if (key_path!=None):
+        if (key_path != None):
             self._check_abs_path(key_path, raise_on_false=True)
         self.key_path = key_path
 
@@ -54,16 +54,15 @@ class SSHConnection(UtilsMixin, BaseConnection):
                              username=self.user_name,
                              key_filename=self.key_path)
 
-
     def login(self, *args, **kwargs):
         if not self.logged_in:
             if self.key_path is not None:
                 self._login_with_key()
             elif self.user_pw is None:
                 raise NotImplementedError()
-                #print("input password for {}".format(self.user_name))
-                #self.user_pw = getpass.getpass()
-                #self._login_with_password()
+                # print("input password for {}".format(self.user_name))
+                # self.user_pw = getpass.getpass()
+                # self._login_with_password()
             elif self.user_pw is not None:
                 self._login_with_password()
 
@@ -73,13 +72,13 @@ class SSHConnection(UtilsMixin, BaseConnection):
             self._sftp = self.client.open_sftp()
             self._logged_in = True
         self.logger.info("SSH logged into {} as user {}".format(self.server,
-                                                            self.remote_user_name))
+                                                                self.remote_user_name))
 
     def logout(self, *args, **kwargs):
         self._sftp.close()
         self._client.close()
         self.logger.info("SSH logged off {} as user {}".format(self.server,
-                                                           self.remote_user_name))
+                                                               self.remote_user_name))
         self._logged_in = False
 
     def upload(self, local_fpath, remote_fpath,

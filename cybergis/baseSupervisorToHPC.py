@@ -7,7 +7,6 @@ from .utils import get_logger
 
 
 class BaseSupervisorToHPC(object):
-
     _KeelingSBatchScriptClass = KeelingSBatchScript
     _KeelingJobClass = KeelingJob
     _CometSBatchScriptClass = SBatchScript
@@ -113,9 +112,9 @@ class BaseSupervisorToHPC(object):
         return SlurmJob.job_status_pbs(None, remote_id, self.connection)
 
     def download(
-        self,
-        remote_output_parent_folder_path,
-        local_job_folder_path,
+            self,
+            remote_output_parent_folder_path,
+            local_job_folder_path,
     ):
         self.connection.download(
             os.path.join(remote_output_parent_folder_path, "output"),

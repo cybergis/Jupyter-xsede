@@ -264,8 +264,8 @@ class SlurmJob(UtilsMixin, BaseJob):
         cmd = 'squeue --job {}'.format(remote_id)
         try:
             out = connection.run_command(cmd,
-                                        line_delimiter=None,
-                                        raise_on_error=True)
+                                         line_delimiter=None,
+                                         raise_on_error=True)
             # out[0].split()
             #   ['JOBID', 'PARTITION', 'NAME', 'USER', 'ST', 'TIME', 'NODES', 'NODELIST(REASON)']
             # out[1].split()
@@ -285,8 +285,8 @@ class SlurmJob(UtilsMixin, BaseJob):
 
         try:
             out = connection.run_command(cmd,
-                                        line_delimiter=None,
-                                        raise_on_error=True)
+                                         line_delimiter=None,
+                                         raise_on_error=True)
             if out is None:
                 return "UNKNOWN"
             # out = \

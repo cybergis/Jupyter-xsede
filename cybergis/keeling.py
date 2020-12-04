@@ -21,4 +21,3 @@ class KeelingJob(SlurmJob):
 
     def prepare(self):
         raise NotImplementedError()
-

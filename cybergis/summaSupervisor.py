@@ -1,10 +1,9 @@
 from .baseSupervisorToHPC import BaseSupervisorToHPC
 from .summa import SummaKeelingSBatchScript, SummaKeelingJob, \
-                   SummaCometSBatchScript, SummaCometJob
+    SummaCometSBatchScript, SummaCometJob
 
 
 class SummaSupervisorToHPC(BaseSupervisorToHPC):
-
     _KeelingSBatchScriptClass = SummaKeelingSBatchScript
     _KeelingJobClass = SummaKeelingJob
     _CometSBatchScriptClass = SummaCometSBatchScript
@@ -18,10 +17,10 @@ class SummaSupervisorToHPC(BaseSupervisorToHPC):
             user_pw=None,
     ):
 
-        super().__init__( parameters,
-                 username=username,
-                 private_key_path=private_key_path,
-                 user_pw=user_pw,)
+        super().__init__(parameters,
+                         username=username,
+                         private_key_path=private_key_path,
+                         user_pw=user_pw, )
         try:
             self.file_manager_rel_path = parameters["file_manager_rel_path"]
         except:

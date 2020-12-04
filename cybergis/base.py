@@ -67,22 +67,21 @@ class BaseScript(object):
 class BaseJob(object):
     def __init__(self):
         self.logger = get_logger()
-    pass
 
 
 class SBatchScript(BaseScript):
     file_name = "job.sbatch"
 
     SCRIPT_TEMPLATE = \
-'''#!/bin/bash
-#SBATCH --job-name=$job_name
-#SBATCH --ntasks=$ntasks
-#SBATCH --time=$walltime
-
-srun $exe'''
+        '''#!/bin/bash
+        #SBATCH --job-name=$job_name
+        #SBATCH --ntasks=$ntasks
+        #SBATCH --time=$walltime
+        
+        srun $exe'''
 
     # see: https://slurm.schedmd.com/sbatch.html
-    walltime = "01:00:00"   # 1 hour
+    walltime = "01:00:00"  # 1 hour
     ntasks = int(1)  # number of task
     job_name = ""
     stdout = None  # Path to output
