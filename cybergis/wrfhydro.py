@@ -10,51 +10,51 @@ from .connection import SSHConnection
 logger = get_logger()
 
 WRFHYDRO_SBATCH_SCRIPT_TEMPLATE = \
-    '''#!/bin/bash
-    
-    #SBATCH --job-name=$job_name
-    #SBATCH --ntasks=$ntasks
-    #SBATCH --time=$walltime
-    #SBATCH --partition=$partition
-    
-    ## allocated hostnames
-    echo $$SLURM_JOB_NODELIST
-    
-    $module_config
-    
-    ## compile mode from source
-    singularity exec -B $remote_job_folder_path:/workspace $remote_singularity_img_path python /workspace/compile_wrfhydro.py
-    
-    ## change wrf_hydro.exe permission
-    chmod +x $remote_model_folder_path/wrf_hydro.exe
-    
-    ## count number of folders job_xxxx
-    ## $$ is to escape single dollar sign, which are used as bash variables later
-    ## See: https://docs.python.org/2.4/lib/node109.html
-    job_num=$$(find $remote_model_folder_path/job_* -type d | wc -l)
-    
-    ## see: https://docs.nersc.gov/jobs/examples/#multiple-parallel-jobs-sequentially
-    ## loop through 0 -- job_num-1
-    for (( job_index=0; job_index<$$job_num; job_index++ ))
-    do
-      echo $$job_index
-    
-      ## parallel run
-      srun --mpi=pmi2 singularity exec -B $remote_job_folder_path:/workspace $remote_singularity_img_path python /workspace/run_mpi_call_singularity.py $$job_index
-    
-      ## sequential run for testing
-      ## singularity exec -B $remote_job_folder_path:/workspace $remote_singularity_img_path python /workspace/run_mpi_call_singularity.py $$job_index
-    
-      if [ $$job_index -lt $$((job_num-1)) ]
-        then
-           echo "sleep for 5s"
-           sleep 5
-      fi
-    done
-    
-    singularity exec -B $remote_job_folder_path:/workspace $remote_singularity_img_path python /workspace/copy_outputs.py
-    
-    '''
+'''#!/bin/bash
+
+#SBATCH --job-name=$job_name
+#SBATCH --ntasks=$ntasks
+#SBATCH --time=$walltime
+#SBATCH --partition=$partition
+
+## allocated hostnames
+echo $$SLURM_JOB_NODELIST
+
+$module_config
+
+## compile mode from source
+singularity exec -B $remote_job_folder_path:/workspace $remote_singularity_img_path python /workspace/compile_wrfhydro.py
+
+## change wrf_hydro.exe permission
+chmod +x $remote_model_folder_path/wrf_hydro.exe
+
+## count number of folders job_xxxx
+## $$ is to escape single dollar sign, which are used as bash variables later
+## See: https://docs.python.org/2.4/lib/node109.html
+job_num=$$(find $remote_model_folder_path/job_* -type d | wc -l)
+
+## see: https://docs.nersc.gov/jobs/examples/#multiple-parallel-jobs-sequentially
+## loop through 0 -- job_num-1
+for (( job_index=0; job_index<$$job_num; job_index++ ))
+do
+  echo $$job_index
+
+  ## parallel run
+  srun --mpi=pmi2 singularity exec -B $remote_job_folder_path:/workspace $remote_singularity_img_path python /workspace/run_mpi_call_singularity.py $$job_index
+
+  ## sequential run for testing
+  ## singularity exec -B $remote_job_folder_path:/workspace $remote_singularity_img_path python /workspace/run_mpi_call_singularity.py $$job_index
+
+  if [ $$job_index -lt $$((job_num-1)) ]
+    then
+       echo "sleep for 5s"
+       sleep 5
+  fi
+done
+
+singularity exec -B $remote_job_folder_path:/workspace $remote_singularity_img_path python /workspace/copy_outputs.py
+
+'''
 
 
 class WRFHydroKeelingSBatchScript(KeelingSBatchScript):
@@ -101,110 +101,110 @@ class WRFHydroUserScript(BaseScript):
     file_name = "run_mpi_call_singularity.py"
 
     SCRIPT_TEMPLATE = \
-        '''
-        import os
-        import sys
-        import pickle
-        import pathlib
-        from pprint import pprint
-        
-        print ('Number of arguments:', len(sys.argv), 'arguments.')
-        print ('Argument List:', str(sys.argv))
-        
-        job_index = int(sys.argv[1])
-        
-        folder = pathlib.Path("/workspace/$remote_model_folder_name")
-        # pickle obj has the jobs in right order
-        pickle_file = folder / "simulation.pkl"
-        
-        sim = pickle.load(folder.joinpath('simulation.pkl').open('rb'))
-        
-        job = sim.jobs[job_index]
-        
-        pprint("==================   Working on {job_id}  ===================".format(job_id=job.job_id))
-        
-        # side-effect: all processes to do the same copying, which is ok for now
-        os.system('cp /workspace/$remote_model_folder_name/job_{job_id}/* /workspace/$remote_model_folder_name/'.format(job_id=job.job_id))
-        os.system('cd /workspace/$remote_model_folder_name && ./wrf_hydro.exe')
-        
-        pprint("==================  Done with {job_id}  ===================".format(job_id=job.job_id))
-        exit()
-        
-        '''
+'''
+import os
+import sys
+import pickle
+import pathlib
+from pprint import pprint
+
+print ('Number of arguments:', len(sys.argv), 'arguments.')
+print ('Argument List:', str(sys.argv))
+
+job_index = int(sys.argv[1])
+
+folder = pathlib.Path("/workspace/$remote_model_folder_name")
+# pickle obj has the jobs in right order
+pickle_file = folder / "simulation.pkl"
+
+sim = pickle.load(folder.joinpath('simulation.pkl').open('rb'))
+
+job = sim.jobs[job_index]
+
+pprint("==================   Working on {job_id}  ===================".format(job_id=job.job_id))
+
+# side-effect: all processes to do the same copying, which is ok for now
+os.system('cp /workspace/$remote_model_folder_name/job_{job_id}/* /workspace/$remote_model_folder_name/'.format(job_id=job.job_id))
+os.system('cd /workspace/$remote_model_folder_name && ./wrf_hydro.exe')
+
+pprint("==================  Done with {job_id}  ===================".format(job_id=job.job_id))
+exit()
+
+'''
 
 
 class WRFHydroUserScript2(BaseScript):
     file_name = "copy_outputs.py"
 
     SCRIPT_TEMPLATE = \
-        '''
-        import os
-        import sys
-        import shutil
-        import pickle
-        import pathlib
-        from pprint import pprint
-        import wrfhydropy
-        
-        output_folder_path = "/workspace/output"
-        if not os.path.exists(output_folder_path):
-            os.makedirs(output_folder_path)
-        try:    
-            output = wrfhydropy.core.simulation.SimulationOutput()
-            output.collect_output(sim_dir="/workspace/$remote_model_folder_name")
-            for key, val in output.__dict__.items():
-                for path in val:
-                    #shutil.copyfile(str(path), os.path.join(output_folder_path, os.path.basename(str(path))))
-                    shutil.move(str(path), os.path.join(output_folder_path, os.path.basename(str(path))))
-        except Exception:
-            pass
-        os.system("cp /workspace/slurm* /workspace/output/")
-        os.system("cp /workspace/$remote_model_folder_name/diag* /workspace/output/")
-        os.system("cp /workspace/$remote_model_folder_name/*stdout /workspace/output/")
-        os.system("cp /workspace/$remote_model_folder_name/*stderr /workspace/output/")
-        os.system("cp /workspace/$remote_model_folder_name/*.exe /workspace/output/")
-        os.system("cp /workspace/$remote_model_folder_name/*.pkl /workspace/output/")
-        '''
+'''
+import os
+import sys
+import shutil
+import pickle
+import pathlib
+from pprint import pprint
+import wrfhydropy
+
+output_folder_path = "/workspace/output"
+if not os.path.exists(output_folder_path):
+    os.makedirs(output_folder_path)
+try:    
+    output = wrfhydropy.core.simulation.SimulationOutput()
+    output.collect_output(sim_dir="/workspace/$remote_model_folder_name")
+    for key, val in output.__dict__.items():
+        for path in val:
+            #shutil.copyfile(str(path), os.path.join(output_folder_path, os.path.basename(str(path))))
+            shutil.move(str(path), os.path.join(output_folder_path, os.path.basename(str(path))))
+except Exception:
+    pass
+os.system("cp /workspace/slurm* /workspace/output/")
+os.system("cp /workspace/$remote_model_folder_name/diag* /workspace/output/")
+os.system("cp /workspace/$remote_model_folder_name/*stdout /workspace/output/")
+os.system("cp /workspace/$remote_model_folder_name/*stderr /workspace/output/")
+os.system("cp /workspace/$remote_model_folder_name/*.exe /workspace/output/")
+os.system("cp /workspace/$remote_model_folder_name/*.pkl /workspace/output/")
+'''
 
 
 class WRFHydroUserScript3(BaseScript):
     file_name = "compile_wrfhydro.py"
 
     SCRIPT_TEMPLATE = \
-        '''
-        import wrfhydropy
-        import pathlib
-        import os
-        import pickle
-        import tempfile
-        
-        
-        in_model_pkl = '/workspace/$remote_model_folder_name/WrfHydroModel.pkl'
-        out_folder = '/workspace/$remote_model_folder_name'
-        repo = "https://github.com/NCAR/wrf_hydro_nwm_public.git"
-        
-        model = pickle.load(pathlib.Path(in_model_pkl).open('rb'))
-        config = model.model_config
-        commit_id = model.git_hash
-        print("{}; {}".format(commit_id, config))
-        
-        temp = tempfile.mkdtemp()
-        
-        cmd = "git clone {repo} {temp} && cd {temp} && git checkout {commit_id}".format(repo=repo, temp=temp, commit_id=commit_id)
-        os.system(cmd)
-        
-        experiment_dir = pathlib.Path(temp)
-        model_src = experiment_dir / 'trunk/NDHMS'
-        
-        model = wrfhydropy.Model(
-            model_src,
-            compiler='gfort',
-            model_config=config)
-            
-        compile_dir = pathlib.Path(out_folder)
-        model.compile(compile_dir)
-        
-        '''
+'''
+import wrfhydropy
+import pathlib
+import os
+import pickle
+import tempfile
+
+
+in_model_pkl = '/workspace/$remote_model_folder_name/WrfHydroModel.pkl'
+out_folder = '/workspace/$remote_model_folder_name'
+repo = "https://github.com/NCAR/wrf_hydro_nwm_public.git"
+
+model = pickle.load(pathlib.Path(in_model_pkl).open('rb'))
+config = model.model_config
+commit_id = model.git_hash
+print("{}; {}".format(commit_id, config))
+
+temp = tempfile.mkdtemp()
+
+cmd = "git clone {repo} {temp} && cd {temp} && git checkout {commit_id}".format(repo=repo, temp=temp, commit_id=commit_id)
+os.system(cmd)
+
+experiment_dir = pathlib.Path(temp)
+model_src = experiment_dir / 'trunk/NDHMS'
+
+model = wrfhydropy.Model(
+    model_src,
+    compiler='gfort',
+    model_config=config)
+    
+compile_dir = pathlib.Path(out_folder)
+model.compile(compile_dir)
+
+'''
 
 
 class WRFHydroKeelingJob(KeelingJob):
