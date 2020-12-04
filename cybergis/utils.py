@@ -3,7 +3,6 @@ import tempfile
 import shutil
 import logging
 
-
 logger = logging.getLogger("cybergis")
 logger.setLevel("INFO")
 streamHandler = logging.StreamHandler()

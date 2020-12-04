@@ -1,13 +1,14 @@
 import uuid
 import os
 import time
-from .base import SBatchScript, BaseConnection, BaseJob
+from .base import SBatchScript, BaseJob
+from .connection import SSHConnection
 from .utils import UtilsMixin
 
 
 class SlurmJob(UtilsMixin, BaseJob):
     # This is a Slurm Job
-    JOB_ID_PREFIX = "CyberGIS_"
+    job_name = "CyberGIS"
     backend = ""  # keeling or comet
     # the job id assigned locally
     local_id = ""
@@ -34,7 +35,7 @@ class SlurmJob(UtilsMixin, BaseJob):
     # ssh_connection obj
     connection = None
     # Class type of connection obj
-    connection_class = BaseConnection
+    connection_class = SSHConnection
     # Class type of sbatch script obj
     sbatch_script_class = SBatchScript
 
@@ -65,8 +66,9 @@ class SlurmJob(UtilsMixin, BaseJob):
 
         if local_id is None:
             t = str(int(time.time()))
-            local_id = self.random_id(prefix=self.JOB_ID_PREFIX + "{}_".format(t))
-            self.localID = local_id
+            local_id = self.random_id(prefix=self.job_name + "_{}_".format(t))
+        else:
+            local_id = "{}_{}".format(self.job_name, local_id)
 
         # local job id
         self.local_id = local_id
@@ -81,7 +83,8 @@ class SlurmJob(UtilsMixin, BaseJob):
         self.sbatch_script = sbatch_script
         self.sbatch_script.job = self
 
-        self.name = name if name is not None else local_id
+        self.job_name = name if name is not None else self.job_name
+        self.sbatch_script.job_name = self.job_name
         self.description = description
 
     def _prepare_local_model_folder(self, move_source):
@@ -165,13 +168,6 @@ class SlurmJob(UtilsMixin, BaseJob):
                                self.remote_workspace_folder_path,
                                remote_is_folder=True)
 
-    def _save_remote_id(self, msg, *args, **kwargs):
-        if 'ERROR' in msg or 'WARN' in msg:
-            self.logger.error('Submit job {} error: {}'.format(self.local_id, msg))
-        self.remote_id = msg
-        self.logger.debug("Job local_id {} remote_id {}".format(self.local_id, self.remote_id))
-        return self.remote_id
-
     def submit(self, remote_job_submission_folder_path=None, remote_sbatch_folder_path=None):
         if remote_job_submission_folder_path is None:
             remote_job_submission_folder_path = self.remote_job_folder_path
@@ -194,37 +190,112 @@ class SlurmJob(UtilsMixin, BaseJob):
     def post_submission(self):
         pass
 
-    def job_status(self):
-        # monitor job status
-        raise NotImplementedError()
-
     def download(self):
-        raise NotImplementedError()
         # download job from HPC to local
-        self.connection.download(self.remote_output_path, self.local_output_path)
+        pass
 
     def prepare(self, *args, **kwargs):
         # prepare sbatch script and user scripts here
-        raise NotImplementedError()
+        pass
+
+    def _save_remote_id(self, msg, *args, **kwargs):
+        if 'ERROR' in msg or 'WARN' in msg:
+            self.loggert.error('Submit job {} error: {}'.format(self.local_id, msg))
+        remote_id = msg.split()[-1]
+        self.remote_id = remote_id
+        self.logger.debug("Job local_id {} remote_id {}".format(self.local_id, self.remote_id))
+        self.slurm_out_file_name = "slurm-{}.out".format(self.remote_id)
+        self.remote_slurm_out_file_path = os.path.join(self.remote_run_sbatch_folder_path,
+                                                       self.slurm_out_file_name)
+        return remote_id
 
     def job_status(self):
-        # monitor job status
-        # see https://slurm.schedmd.com/squeue.html
-        # "JOB STATE CODES" section for more states
-        # PD PENDING, R RUNNING, S SUSPENDED,
-        # CG COMPLETING, CD COMPLETED
+        return self.job_status_pbs(self.remote_id, self.connection)
 
-        # get current hpc time and job status (remove line 1 and 3)
-        remote_id = self.remote_id
+    # def job_status_pbs(self):
+    #     # Slurm supports both squeue (slurm) and qstat (pbs) for queue management
+    #     # Based our test, however, squeue Can Not show Completed jobs and kicks job off
+    #     # queue record very soon. So it is hard to tell if a run is completed or does not exist
+    #     # So we use qstat (pbs) to monitor job status
+    #
+    #     # get current hpc time and job status (remove line 1 and 3)
+    #     remote_id = self.remote_id
+    #     cmd = 'qstat {}'.format(remote_id)
+    #
+    #     try:
+    #         out = self.connection.run_command(cmd,
+    #                                           line_delimiter=None,
+    #                                           raise_on_error=True)
+    #         if out is None:
+    #             return "UNKNOWN"
+    #         # out = \
+    #         # ['Job id              Name             Username        Time Use S Queue          ',
+    #         # '------------------- ---------------- --------------- -------- - ---------------',
+    #         # '3142249             singularity      cigi-gisolve    00:00:00 R node           ']
+    #
+    #         return out[2].split()[-2]
+    #     except Exception as ex:
+    #         self.logger.warning("Job status error: ".format(ex.message))
+    #         return "ERROR"
+
+    # def job_status_slurm(self):
+    #     # monitor job status
+    #     # see https://slurm.schedmd.com/squeue.html
+    #     # "JOB STATE CODES" section for more states
+    #     # PD PENDING, R RUNNING, S SUSPENDED,
+    #     # CG COMPLETING, CD COMPLETED
+    #
+    #     # get current hpc time and job status (remove line 1 and 3)
+    #     remote_id = self.remote_id
+    #     cmd = 'squeue --job {}'.format(remote_id)
+    #     try:
+    #         out = self.connection.run_command(cmd,
+    #                                           line_delimiter=None,
+    #                                           raise_on_error=True)
+    #         # out[0].split()
+    #         #   ['JOBID', 'PARTITION', 'NAME', 'USER', 'ST', 'TIME', 'NODES', 'NODELIST(REASON)']
+    #         # out[1].split()
+    #         #   ['3142135', 'node', 'singular', 'cigi-gis', 'R', '0:11', '1', 'keeling-b08']
+    #         return out[1].split()[4]
+    #     except Exception as ex:
+    #         return "ERROR"
+
+    def job_status_slurm(self, remote_id, connection):
+
         cmd = 'squeue --job {}'.format(remote_id)
         try:
-            out = self.connection.run_command(cmd,
-                                              line_delimiter=None,
-                                              raise_on_error=True)
+            out = connection.run_command(cmd,
+                                         line_delimiter=None,
+                                         raise_on_error=True)
             # out[0].split()
             #   ['JOBID', 'PARTITION', 'NAME', 'USER', 'ST', 'TIME', 'NODES', 'NODELIST(REASON)']
             # out[1].split()
             #   ['3142135', 'node', 'singular', 'cigi-gis', 'R', '0:11', '1', 'keeling-b08']
             return out[1].split()[4]
         except Exception as ex:
+            return "ERROR"
+
+    def job_status_pbs(self, remote_id, connection):
+        # Slurm supports both squeue (slurm) and qstat (pbs) for queue management
+        # Based our test, however, squeue Can Not show Completed jobs and kicks job off
+        # queue record very soon. So it is hard to tell if a run is completed or does not exist
+        # So we use qstat (pbs) to monitor job status
+
+        # get current hpc time and job status (remove line 1 and 3)
+        cmd = 'qstat {}'.format(remote_id)
+
+        try:
+            out = connection.run_command(cmd,
+                                         line_delimiter=None,
+                                         raise_on_error=True)
+            if out is None:
+                return "UNKNOWN"
+            # out = \
+            # ['Job id              Name             Username        Time Use S Queue          ',
+            # '------------------- ---------------- --------------- -------- - ---------------',
+            # '3142249             singularity      cigi-gisolve    00:00:00 R node           ']
+
+            return out[2].split()[-2]
+        except Exception as ex:
+            self.logger.warning("Job status error: ".format(ex.message))
             return "ERROR"

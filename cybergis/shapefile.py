@@ -13,8 +13,9 @@ import sys
 import time
 import array
 import math
-#from rdp import rdp
+# from rdp import rdp
 from pyproj import Proj, transform
+
 #
 # Constants for shape types
 NULL = 0
@@ -34,6 +35,7 @@ MULTIPATCH = 31
 
 PYTHON3 = sys.version_info[0] == 3
 
+
 def b(v):
     if PYTHON3:
         if isinstance(v, str):
@@ -48,6 +50,7 @@ def b(v):
     else:
         # For python 2 assume str passed in and return str.
         return v
+
 
 def u(v):
     if PYTHON3:
@@ -64,17 +67,21 @@ def u(v):
         # For python 2 assume str passed in and return str.
         return v
 
+
 def is_string(v):
     if PYTHON3:
         return isinstance(v, str)
     else:
         return isinstance(v, basestring)
 
+
 class _Array(array.array):
     """Converts python tuples to lits of the appropritate type.
     Used to unpack different shapefile header parts."""
+
     def __repr__(self):
         return str(self.tolist())
+
 
 class _Shape:
     def __init__(self, shapeType=None):
@@ -90,15 +97,19 @@ class _Shape:
         self.shapeType = shapeType
         self.points = []
 
+
 class _ShapeRecord:
     """A shape object of any type."""
+
     def __init__(self, shape=None, record=None):
         self.shape = shape
         self.record = record
 
+
 class ShapefileException(Exception):
     """An exception to handle shapefile specific problems."""
     pass
+
 
 class Reader:
     """Reads the three files of a shapefile as a unit or
@@ -118,6 +129,7 @@ class Reader:
     efficiently as possible. Shapefiles are usually not large
     but they can be.
     """
+
     def __init__(self, *args, **kwargs):
         self.shp = None
         self.shx = None
@@ -209,7 +221,7 @@ class Reader:
         self.shpLength = unpack(">i", shp.read(4))[0] * 2
         # Shape type
         shp.seek(32)
-        self.shapeType= unpack("<i", shp.read(4))[0]
+        self.shapeType = unpack("<i", shp.read(4))[0]
         # The shapefile's bounding box (lower left, upper right)
         self.bbox = _Array('d', unpack("<4d", shp.read(32)))
         # Elevation
@@ -229,13 +241,13 @@ class Reader:
         if shapeType == 0:
             record.points = []
         # All shape types capable of having a bounding box
-        elif shapeType in (3,5,8,13,15,18,23,25,28,31):
+        elif shapeType in (3, 5, 8, 13, 15, 18, 23, 25, 28, 31):
             record.bbox = _Array('d', unpack("<4d", f.read(32)))
         # Shape types with parts
-        if shapeType in (3,5,13,15,23,25,31):
+        if shapeType in (3, 5, 13, 15, 23, 25, 31):
             nParts = unpack("<i", f.read(4))[0]
         # Shape types with points
-        if shapeType in (3,5,8,13,15,23,25,31):
+        if shapeType in (3, 5, 8, 13, 15, 23, 25, 31):
             nPoints = unpack("<i", f.read(4))[0]
         # Read parts
         if nParts:
@@ -247,11 +259,11 @@ class Reader:
         if nPoints:
             record.points = [_Array('d', unpack("<2d", f.read(16))) for p in range(nPoints)]
         # Read z extremes and values
-        if shapeType in (13,15,18,31):
+        if shapeType in (13, 15, 18, 31):
             (zmin, zmax) = unpack("<2d", f.read(16))
             record.z = _Array('d', unpack("<%sd" % nPoints, f.read(nPoints * 8)))
         # Read m extremes and values
-        if shapeType in (13,15,18,23,25,28,31):
+        if shapeType in (13, 15, 18, 23, 25, 28, 31):
             (mmin, mmax) = unpack("<2d", f.read(16))
             # Measure values less than -10e38 are nodata values according to the spec
             record.m = []
@@ -261,13 +273,13 @@ class Reader:
                 else:
                     record.m.append(None)
         # Read a single point
-        if shapeType in (1,11,21):
+        if shapeType in (1, 11, 21):
             record.points = [_Array('d', unpack("<2d", f.read(16)))]
         # Read a single Z value
         if shapeType == 11:
             record.z = unpack("<d", f.read(8))
         # Read a single M value
-        if shapeType in (11,21):
+        if shapeType in (11, 21):
             record.m = unpack("<d", f.read(8))
         return record
 
@@ -317,10 +329,11 @@ class Reader:
         """Retrieves the header length of a dbf file header."""
         if not self.__dbfHdrLength:
             if not self.dbf:
-                raise ShapefileException("Shapefile Reader requires a shapefile or file-like object. (no dbf file found)")
+                raise ShapefileException(
+                    "Shapefile Reader requires a shapefile or file-like object. (no dbf file found)")
             dbf = self.dbf
             (self.numRecords, self.__dbfHdrLength) = \
-                    unpack("<xxxxLH22x", dbf.read(32))
+                unpack("<xxxxLH22x", dbf.read(32))
         return self.__dbfHdrLength
 
     def __dbfHeader(self):
@@ -378,7 +391,7 @@ class Reader:
                     try:
                         value = float(value)
                     except:
-                        value = float(value.replace(b('#INF'),b('')))
+                        value = float(value.replace(b('#INF'), b('')))
                 else:
                     value = int(value)
             elif typ == b('D'):
@@ -389,7 +402,7 @@ class Reader:
                     value = value.strip()
             elif typ == b('L'):
                 value = (value in b('YyTt') and b('T')) or \
-                                        (value in b('NnFf') and b('F')) or b('?')
+                        (value in b('NnFf') and b('F')) or b('?')
             else:
                 value = u(value)
                 value = value.strip()
@@ -425,17 +438,19 @@ class Reader:
         supplied record index."""
         i = self.__restrictIndex(i)
         return _ShapeRecord(shape=self.shape(i),
-                                                        record=self.record(i))
+                            record=self.record(i))
 
     def shapeRecords(self):
         """Returns a list of combination geometry/attribute records for
         all records in a shapefile."""
         shapeRecords = []
         return [_ShapeRecord(shape=rec[0], record=rec[1]) \
-                                for rec in zip(self.shapes(), self.records())]
+                for rec in zip(self.shapes(), self.records())]
+
 
 class Writer:
     """Provides write support for ESRI Shapefiles."""
+
     def __init__(self, shapeType=None):
         self._shapes = []
         self.fields = []
@@ -473,24 +488,24 @@ class Writer:
             # Add in record header and shape type fields
             size += 12
             # nParts and nPoints do not apply to all shapes
-            #if self.shapeType not in (0,1):
+            # if self.shapeType not in (0,1):
             #       nParts = len(s.parts)
             #       nPoints = len(s.points)
-            if hasattr(s,'parts'):
+            if hasattr(s, 'parts'):
                 nParts = len(s.parts)
-            if hasattr(s,'points'):
+            if hasattr(s, 'points'):
                 nPoints = len(s.points)
             # All shape types capable of having a bounding box
-            if self.shapeType in (3,5,8,13,15,18,23,25,28,31):
+            if self.shapeType in (3, 5, 8, 13, 15, 18, 23, 25, 28, 31):
                 size += 32
             # Shape types with parts
-            if self.shapeType in (3,5,13,15,23,25,31):
+            if self.shapeType in (3, 5, 13, 15, 23, 25, 31):
                 # Parts count
                 size += 4
                 # Parts index array
                 size += nParts * 4
             # Shape types with points
-            if self.shapeType in (3,5,8,13,15,23,25,31):
+            if self.shapeType in (3, 5, 8, 13, 15, 23, 25, 31):
                 # Points count
                 size += 4
                 # Points array
@@ -499,25 +514,25 @@ class Writer:
             if self.shapeType == 31:
                 size += nParts * 4
             # Calc z extremes and values
-            if self.shapeType in (13,15,18,31):
+            if self.shapeType in (13, 15, 18, 31):
                 # z extremes
                 size += 16
                 # z array
                 size += 8 * nPoints
             # Calc m extremes and values
-            if self.shapeType in (23,25,31):
+            if self.shapeType in (23, 25, 31):
                 # m extremes
                 size += 16
                 # m array
                 size += 8 * nPoints
             # Calc a single point
-            if self.shapeType in (1,11,21):
+            if self.shapeType in (1, 11, 21):
                 size += 16
             # Calc a single Z value
             if self.shapeType == 11:
                 size += 8
             # Calc a single M value
-            if self.shapeType in (11,21):
+            if self.shapeType in (11, 21):
                 size += 8
         # Calculate size as 16-bit words
         size //= 2
@@ -579,7 +594,7 @@ class Writer:
         f = self.__getFileObj(fileObj)
         f.seek(0)
         # File code, Unused bytes
-        f.write(pack(">6i", 9994,0,0,0,0,0))
+        f.write(pack(">6i", 9994, 0, 0, 0, 0, 0))
         # File length (Bytes / 2 = 16-bit words)
         if headerType == 'shp':
             f.write(pack(">i", self.__shpFileLength()))
@@ -594,7 +609,7 @@ class Writer:
             except error:
                 raise ShapefileException("Failed to write shapefile bounding box. Floats required.")
         else:
-            f.write(pack("<4d", 0,0,0,0))
+            f.write(pack("<4d", 0, 0, 0, 0))
         # Elevation
         z = self.zbox()
         # Measure
@@ -620,7 +635,7 @@ class Writer:
         headerLength = numFields * 32 + 33
         recordLength = sum([int(field[2]) for field in self.fields]) + 1
         header = pack('<BBBBLHH20x', version, year, month, day, numRecs,
-                headerLength, recordLength)
+                      headerLength, recordLength)
         f.write(header)
         # Field descriptors
         for field in self.fields:
@@ -649,21 +664,21 @@ class Writer:
             # Shape Type
             f.write(pack("<i", s.shapeType))
             # All shape types capable of having a bounding box
-            if s.shapeType in (3,5,8,13,15,18,23,25,28,31):
+            if s.shapeType in (3, 5, 8, 13, 15, 18, 23, 25, 28, 31):
                 try:
                     f.write(pack("<4d", *self.__bbox([s])))
                 except error:
                     raise ShapefileException("Falied to write bounding box for record %s. Expected floats." % recNum)
             # Shape types with parts
-            if s.shapeType in (3,5,13,15,23,25,31):
+            if s.shapeType in (3, 5, 13, 15, 23, 25, 31):
                 # Number of parts
                 f.write(pack("<i", len(s.parts)))
             # Shape types with multiple points per record
-            if s.shapeType in (3,5,8,13,15,23,25,31):
+            if s.shapeType in (3, 5, 8, 13, 15, 23, 25, 31):
                 # Number of points
                 f.write(pack("<i", len(s.points)))
             # Write part indexes
-            if s.shapeType in (3,5,13,15,23,25,31):
+            if s.shapeType in (3, 5, 13, 15, 23, 25, 31):
                 for p in s.parts:
                     f.write(pack("<i", p))
             # Part types for Multipatch (31)
@@ -671,23 +686,25 @@ class Writer:
                 for pt in s.partTypes:
                     f.write(pack("<i", pt))
             # Write points for multiple-point records
-            if s.shapeType in (3,5,8,13,15,23,25,31):
+            if s.shapeType in (3, 5, 8, 13, 15, 23, 25, 31):
                 try:
                     [f.write(pack("<2d", *p[:2])) for p in s.points]
                 except error:
                     raise ShapefileException("Failed to write points for record %s. Expected floats." % recNum)
             # Write z extremes and values
-            if s.shapeType in (13,15,18,31):
+            if s.shapeType in (13, 15, 18, 31):
                 try:
                     f.write(pack("<2d", *self.__zbox([s])))
                 except error:
-                    raise ShapefileException("Failed to write elevation extremes for record %s. Expected floats." % recNum)
+                    raise ShapefileException(
+                        "Failed to write elevation extremes for record %s. Expected floats." % recNum)
                 try:
                     [f.write(pack("<d", p[2])) for p in s.points]
                 except error:
-                    raise ShapefileException("Failed to write elevation values for record %s. Expected floats." % recNum)
+                    raise ShapefileException(
+                        "Failed to write elevation values for record %s. Expected floats." % recNum)
             # Write m extremes and values
-            if s.shapeType in (23,25,31):
+            if s.shapeType in (23, 25, 31):
                 try:
                     f.write(pack("<2d", *self.__mbox([s])))
                 except error:
@@ -697,7 +714,7 @@ class Writer:
                 except error:
                     raise ShapefileException("Failed to write measure values for record %s. Expected floats" % recNum)
             # Write a single point
-            if s.shapeType in (1,11,21):
+            if s.shapeType in (1, 11, 21):
                 try:
                     f.write(pack("<2d", s.points[0][0], s.points[0][1]))
                 except error:
@@ -709,7 +726,7 @@ class Writer:
                 except error:
                     raise ShapefileException("Failed to write elevation value for record %s. Expected floats." % recNum)
             # Write a single M value
-            if s.shapeType in (11,21):
+            if s.shapeType in (11, 21):
                 try:
                     f.write(pack("<1d", s.points[0][3]))
                 except error:
@@ -719,7 +736,7 @@ class Writer:
             length = (finish - start) // 2
             self._lengths.append(length)
             # start - 4 bytes is the content length field
-            f.seek(start-4)
+            f.seek(start - 4)
             f.write(pack(">i", length))
             f.seek(finish)
 
@@ -736,7 +753,7 @@ class Writer:
         f = self.__getFileObj(self.dbf)
         for record in self.records:
             if not self.fields[0][0].startswith("Deletion"):
-                f.write(b(' ')) # deletion flag
+                f.write(b(' '))  # deletion flag
             for (fieldName, fieldType, size, dec), value in zip(self.fields, record):
                 fieldType = fieldType.upper()
                 size = int(size)
@@ -887,8 +904,8 @@ class Feature:
         self.shpfile = shapeEditor
         self.id = index
         self.lens = len(shapeEditor.shape(index).points)
-        #self.r = {}
-        #for i in range(len(shapeEditor.fields) - 1):
+        # self.r = {}
+        # for i in range(len(shapeEditor.fields) - 1):
         #    self.r[shapeEditor.fields[i + 1][0]] = shapeEditor.records[index][i]
         self.shp = shapeEditor.shape(index)
         self.p = self.shp.points
@@ -910,7 +927,7 @@ class Feature:
 
     def __refreshR(self):
         pass
-        #for i in range(len(self.shp.fields) - 1):
+        # for i in range(len(self.shp.fields) - 1):
         #    self.r[self.shp.fields[i + 1][0]] = self.shp.records[self.id][i]
 
     def __getitem__(self, ind):
@@ -940,39 +957,43 @@ class Feature:
         else:
             self.nowIndex += 1
             return self.shpfile.shape(self.id).points[self.nowIndex]
-    
-    #def DPSimplify(self, epsilon):
+
+    # def DPSimplify(self, epsilon):
     #    pp = list(self.shp.parts) + []
     #    self.shp.points, self.shp.parts=DPSimplify(self.p, epsilon, self.shp.parts)
 
     def area(self):
-	    """
-	    the area of a polygon
-	    """
-	    return areaOf(self.p,self.shp.parts)
+        """
+        the area of a polygon
+        """
+        return areaOf(self.p, self.shp.parts)
 
     def length(self):
         return lengthOf(self.p, self.shp.parts)
 
-def point_in_poly(x,y,poly):
+
+def point_in_poly(x, y, poly):
     n = len(poly)
     inside = False
-    p1x,p1y = poly[0]
-    for i in range(1,n):
-        p2x,p2y = poly[i]
-        if y > min(p1y,p2y) and y <= max(p1y,p2y) and x <= max(p1x,p2x):
+    p1x, p1y = poly[0]
+    for i in range(1, n):
+        p2x, p2y = poly[i]
+        if y > min(p1y, p2y) and y <= max(p1y, p2y) and x <= max(p1x, p2x):
             if p1y != p2y:
-                xints = (y-p1y)*(p2x-p1x)/(p2y-p1y)+p1x
+                xints = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
             if p1x == p2x or x <= xints:
                 inside = not inside
-        p1x,p1y = p2x,p2y
+        p1x, p1y = p2x, p2y
     return inside
-    
+
+
 def is_point_inbox(point, bbox):
     return bbox[0] < point[0] < bbox[2] and bbox[1] < point[1] < bbox[3]
-    
-def isBoxDisjoin(boxa,boxb):
+
+
+def isBoxDisjoin(boxa, boxb):
     return boxa[0] > boxb[2] or boxa[1] > boxb[3] or boxb[0] > boxa[2] or boxb[1] > boxa[3]
+
 
 def is_poly_intersect(square_bboxP, polygon, bboxP):
     """
@@ -980,15 +1001,15 @@ def is_poly_intersect(square_bboxP, polygon, bboxP):
     :rtype : bool
     """
     # quick filter: if their bboxes don't intersect, return False (90% of all cases)
-    if isBoxDisjoin(square_bboxP,bboxP):
+    if isBoxDisjoin(square_bboxP, bboxP):
         return False
 
-    square_bbox = [[square_bboxP[0],square_bboxP[1]],[square_bboxP[2],square_bboxP[3]]]
-    p_bbox = [[bboxP[0],bboxP[1]],[bboxP[2],bboxP[3]]]    
+    square_bbox = [[square_bboxP[0], square_bboxP[1]], [square_bboxP[2], square_bboxP[3]]]
+    p_bbox = [[bboxP[0], bboxP[1]], [bboxP[2], bboxP[3]]]
 
     # if any point of the polygon is inside the square, return True. (8% of all cases, 95% of intersection)
     for point in polygon:
-        if square_bbox[0][0] < point[0] < square_bbox[1][0] and square_bbox[0][1] < point[1] < square_bbox[1][1]:            
+        if square_bbox[0][0] < point[0] < square_bbox[1][0] and square_bbox[0][1] < point[1] < square_bbox[1][1]:
             return True
 
     # vice versa. (1.9% of all cases, 4.9% of intersection) [scanning line]
@@ -1003,7 +1024,7 @@ def is_poly_intersect(square_bboxP, polygon, bboxP):
                     tmp_x = polygon[j][0]
                 else:
                     tmp_x = float((y[i] - polygon[j - 1][1])) / (polygon[j][1] - polygon[j - 1][1]) * (
-                        polygon[j][0] - polygon[j - 1][0]) \
+                            polygon[j][0] - polygon[j - 1][0]) \
                             + polygon[j - 1][0]
                 if tmp_x < square_bbox[0][0]:
                     count[i][0][0] += 1
@@ -1018,11 +1039,11 @@ def is_poly_intersect(square_bboxP, polygon, bboxP):
 
     for group_count in count:
         for point_count in group_count:
-            if point_count[0] & 1 == 1 and point_count[1] & 1 == 1:                
+            if point_count[0] & 1 == 1 and point_count[1] & 1 == 1:
                 return True
-    
+
     # if any line of polygon intersects with any line of the square, return True (rarely the case, almost impossible)
-    if count[0][0][0] < count[0][1][0] or count[1][0][0] < count[1][1][0]:        
+    if count[0][0][0] < count[0][1][0] or count[1][0][0] < count[1][1][0]:
         return True
     x = [square_bbox[0][0], square_bbox[1][0]]
     for i in range(2):
@@ -1035,27 +1056,28 @@ def is_poly_intersect(square_bboxP, polygon, bboxP):
                 else:
                     tmp_y = float((x[i] - polygon[j - 1][0])) / (polygon[j][0] - polygon[j - 1][0]) * \
                             (polygon[j][1] - polygon[j - 1][1]) + polygon[j - 1][1]
-                if y[0] <= tmp_y <= y[1]:                    
+                if y[0] <= tmp_y <= y[1]:
                     return True
             flag = next_flag
-    
+
     return False  # Disjoin
 
-def dist_ponit_to_seg(p,a,b):
+
+def dist_ponit_to_seg(p, a, b):
     ''' distance of point p to segment ab
     '''
-    ap=[p[0]-a[0],p[1]-a[1]]
-    ab=[b[0]-a[0],b[1]-a[1]]
-    base=math.sqrt(ab[0]*ab[0]+ab[1]*ab[1])
+    ap = [p[0] - a[0], p[1] - a[1]]
+    ab = [b[0] - a[0], b[1] - a[1]]
+    base = math.sqrt(ab[0] * ab[0] + ab[1] * ab[1])
     if base == 0:
-        return math.sqrt(ap[0]*ap[0]+ap[1]*ap[1])
-    tp=(ap[0]*ab[0]+ap[1]*ab[1])/base
-    if tp<=0:
-        return math.sqrt(ap[0]*ap[0]+ap[1]*ap[1])
-    elif tp<=base:
-        return abs((ap[0]*ab[1]-ap[1]*ab[0])/base)
+        return math.sqrt(ap[0] * ap[0] + ap[1] * ap[1])
+    tp = (ap[0] * ab[0] + ap[1] * ab[1]) / base
+    if tp <= 0:
+        return math.sqrt(ap[0] * ap[0] + ap[1] * ap[1])
+    elif tp <= base:
+        return abs((ap[0] * ab[1] - ap[1] * ab[0]) / base)
     else:
-        return math.sqrt((b[0]-p[0])*(b[0]-p[0])+(b[1]-p[1])*(b[1]-p[1]))
+        return math.sqrt((b[0] - p[0]) * (b[0] - p[0]) + (b[1] - p[1]) * (b[1] - p[1]))
 
 
 class Editor(Writer):
@@ -1113,12 +1135,18 @@ class Editor(Writer):
         shape type."""
         # shape, part, point
         if shape and part and point:
-            try: self._shapes[shape]
-            except IndexError: self._shapes.append([])
-            try: self._shapes[shape][part]
-            except IndexError: self._shapes[shape].append([])
-            try: self._shapes[shape][part][point]
-            except IndexError: self._shapes[shape][part].append([])
+            try:
+                self._shapes[shape]
+            except IndexError:
+                self._shapes.append([])
+            try:
+                self._shapes[shape][part]
+            except IndexError:
+                self._shapes[shape].append([])
+            try:
+                self._shapes[shape][part][point]
+            except IndexError:
+                self._shapes[shape][part].append([])
             p = self._shapes[shape][part][point]
             if x: p[0] = x
             if y: p[1] = y
@@ -1127,10 +1155,14 @@ class Editor(Writer):
             self._shapes[shape][part][point] = p
         # shape, part
         elif shape and part and not point:
-            try: self._shapes[shape]
-            except IndexError: self._shapes.append([])
-            try: self._shapes[shape][part]
-            except IndexError: self._shapes[shape].append([])
+            try:
+                self._shapes[shape]
+            except IndexError:
+                self._shapes.append([])
+            try:
+                self._shapes[shape][part]
+            except IndexError:
+                self._shapes[shape].append([])
             points = self._shapes[shape][part]
             for i in range(len(points)):
                 p = points[i]
@@ -1141,8 +1173,10 @@ class Editor(Writer):
                 self._shapes[shape][part][i] = p
         # shape
         elif shape and not part and not point:
-            try: self._shapes[shape]
-            except IndexError: self._shapes.append([])
+            try:
+                self._shapes[shape]
+            except IndexError:
+                self._shapes.append([])
 
         # point
         # part
@@ -1155,44 +1189,43 @@ class Editor(Writer):
             self.balance()
 
     def index_of_first_feature_contains_point(self, x, y):
-        if hasattr(self,'root'):
-            return self.treeQuery(x,y,self.root)
+        if hasattr(self, 'root'):
+            return self.treeQuery(x, y, self.root)
         try:
-            return list(map(lambda i:self[i].does_contain_points(x,y), range(self.lens))).index(True)
+            return list(map(lambda i: self[i].does_contain_points(x, y), range(self.lens))).index(True)
         except ValueError:
             return -1
-    
+
     def index_of_closest_feature_to_points(self, x, y):
         if self.shapeType != POINT:
             raise TypeError("This function can only be called by POINT shapefiles")
         if hasattr(self, 'root'):
-            return self.treeClosest(x,y,self.root)
+            return self.treeClosest(x, y, self.root)
         try:
-            return sorted([(distp2p(self.shape(i).points[0],[x,y]),i) for i in range(self.lens)])[0][1]
+            return sorted([(distp2p(self.shape(i).points[0], [x, y]), i) for i in range(self.lens)])[0][1]
         except ValueError:
             return -1
 
-    def dist_to_boundary(self,x,y):
-        polyind=self.index_of_first_feature_contains_point(x,y)
-        if polyind==-1:
-            return -1,-1
-        pts=self[polyind].p
-        return polyind,min(map(lambda i: dist_ponit_to_seg([x,y],pts[i],pts[i+1]),range(len(pts)-1)))
+    def dist_to_boundary(self, x, y):
+        polyind = self.index_of_first_feature_contains_point(x, y)
+        if polyind == -1:
+            return -1, -1
+        pts = self[polyind].p
+        return polyind, min(map(lambda i: dist_ponit_to_seg([x, y], pts[i], pts[i + 1]), range(len(pts) - 1)))
 
     def reproj(self, inprj, outprj):
-        inprj=Proj(init=inprj)
-        outprj=Proj(init=outprj)
-        for i,shp in enumerate(self.shapes()):
-            for j,p in enumerate(shp.points):
-                shp.points[j]=list(transform(inprj, outprj, *p))
-            x,y=zip(*shp.points)
-            self.shape(i).bbox=[min(x),min(y),max(x),max(y)]
-                
+        inprj = Proj(init=inprj)
+        outprj = Proj(init=outprj)
+        for i, shp in enumerate(self.shapes()):
+            for j, p in enumerate(shp.points):
+                shp.points[j] = list(transform(inprj, outprj, *p))
+            x, y = zip(*shp.points)
+            self.shape(i).bbox = [min(x), min(y), max(x), max(y)]
 
     def validate(self):
         """An optional method to try and validate the shapefile
         as much as possible before writing it (not implemented)."""
-        #TODO: Implement validation method
+        # TODO: Implement validation method
         pass
 
     def balance(self):
@@ -1237,99 +1270,97 @@ class Editor(Writer):
             self.records[i][p] = valueFunction(i)
 
     def clip(self, bbox):
-        return self.subshp([i for i in range(self.lens) if not isBoxDisjoin(self.shape(i).bbox, bbox) ])
-        
-    def subshp(self,indiceslist):
+        return self.subshp([i for i in range(self.lens) if not isBoxDisjoin(self.shape(i).bbox, bbox)])
+
+    def subshp(self, indiceslist):
         """ return a sub shapefile including records and geometries from
         startind to endind(not included)"""
-        sub=Editor(None,self.shapeType)
-        sub._shapes=[self._shapes[i] for i in indiceslist]
-        sub.fields=self.fields
-        sub.records=[self.records[i] for i in indiceslist]
-        sub.lens=len(indiceslist)
+        sub = Editor(None, self.shapeType)
+        sub._shapes = [self._shapes[i] for i in indiceslist]
+        sub.fields = self.fields
+        sub.records = [self.records[i] for i in indiceslist]
+        sub.lens = len(indiceslist)
         return sub
 
-    def setrec(self,condition,op,standard,field,value):
+    def setrec(self, condition, op, standard, field, value):
         """ set field=value where condition<op>standard
         op=0,equl, op=0, less, op=1, greater """
-        standard=float(standard)
-        value=float(value)
+        standard = float(standard)
+        value = float(value)
         for i in range(self.lens):
-            candidate=float(self[i][condition])
-            flag=False
-            if op=='=':
-                flag=(candidate==standard)
-            elif op=='<':
-                flag=(candidate<standard)
-            elif op=='>':
-                flag=(candidate>standard)
+            candidate = float(self[i][condition])
+            flag = False
+            if op == '=':
+                flag = (candidate == standard)
+            elif op == '<':
+                flag = (candidate < standard)
+            elif op == '>':
+                flag = (candidate > standard)
             if flag:
-                self[i][field]=value
+                self[i][field] = value
         return self
 
-    def select(self,condition,op,standard):
+    def select(self, condition, op, standard):
         """ select sub set of self which meets the condition """
-        resultlist=[]
-        standard=float(standard)
+        resultlist = []
+        standard = float(standard)
         for i in range(self.lens):
-            flag=False
-            candidate=float(self[i][condition])
-            if op=='=':
-                flag=(candidate==standard)
-            elif op=='<':
-                flag=(candidate<standard)
-            elif op=='>':
-                flag=(candidate>standard)
+            flag = False
+            candidate = float(self[i][condition])
+            if op == '=':
+                flag = (candidate == standard)
+            elif op == '<':
+                flag = (candidate < standard)
+            elif op == '>':
+                flag = (candidate > standard)
             if flag:
                 resultlist.append(i)
         return self.subshp(resultlist)
 
-    def sqlprocess(self,sqlstring):
-        com=sqlstring.split(' ')
+    def sqlprocess(self, sqlstring):
+        com = sqlstring.split(' ')
         print(com)
-        if com[0]=='set':
-            print(com[5],com[6],com[7],com[1],com[3])
-            return self.setrec(com[5],com[6],com[7],com[1],com[3])
+        if com[0] == 'set':
+            print(com[5], com[6], com[7], com[1], com[3])
+            return self.setrec(com[5], com[6], com[7], com[1], com[3])
         else:
-            print(com[3],com[4],com[5])
-            return self.select(com[3],com[4],com[5])
+            print(com[3], com[4], com[5])
+            return self.select(com[3], com[4], com[5])
 
-    def strech_extent(self,targetbbox):
+    def strech_extent(self, targetbbox):
         '''bbox: [[lx,ly],[hx,hy]]
         '''
-        selfbbox=self.bbox()
-        selfbbox=[[selfbbox[0],selfbbox[1]],[selfbbox[2],selfbbox[3]]]
-        width_scale=float(targetbbox[1][0]-targetbbox[0][0])/float(selfbbox[1][0]-selfbbox[0][0])
-        height_scale=float(targetbbox[1][1]-targetbbox[0][1])/float(selfbbox[1][1]-selfbbox[0][1])
+        selfbbox = self.bbox()
+        selfbbox = [[selfbbox[0], selfbbox[1]], [selfbbox[2], selfbbox[3]]]
+        width_scale = float(targetbbox[1][0] - targetbbox[0][0]) / float(selfbbox[1][0] - selfbbox[0][0])
+        height_scale = float(targetbbox[1][1] - targetbbox[0][1]) / float(selfbbox[1][1] - selfbbox[0][1])
         for shp in self._shapes:
             for p in shp.points:
-                p[0]=(p[0]-selfbbox[0][0])*width_scale+targetbbox[0][0]
-                p[1]=(p[1]-selfbbox[0][1])*height_scale+targetbbox[0][1]
-
-
-
+                p[0] = (p[0] - selfbbox[0][0]) * width_scale + targetbbox[0][0]
+                p[1] = (p[1] - selfbbox[0][1]) * height_scale + targetbbox[0][1]
 
     def is_feature_intersect_box(self, i, box):
         if self.shapeType == POINT:
             return is_point_inbox(self.shape(i).points[0], box)
         elif self.shapeType == POLYGON:
-            return is_poly_intersect(box,self.shape(i).points,self.shape(i).bbox)
+            return is_poly_intersect(box, self.shape(i).points, self.shape(i).bbox)
         else:
             raise NotImplementedError('Feature intersection: only POINT and POLYGON are supported')
-            
-    def birth(self,node):
-        if len(node[0])<2 or node[-1]>10:            
+
+    def birth(self, node):
+        if len(node[0]) < 2 or node[-1] > 10:
             return node
-        tmp=node[1]
-        bbox=[[tmp[0],tmp[1]],[tmp[2],tmp[3]]]
-        mid=[0.5*(tmp[0]+tmp[2]),0.5*(tmp[1]+tmp[3])]
-        for i in range(4):            
-            x=(mid[0],bbox[i & 1][0])
-            y=(mid[1],bbox[i >> 1][1])
-            newbbox=[min(x),min(y),max(x),max(y)]            
-            newshps=filter(lambda k: self.is_feature_intersect_box(k, newbbox), node[0])
-            node[2].append(self.birth([newshps,newbbox,[],node[-1]+1])) # feature_id_set, boundingbox, children, depth
-        #if node[-1]<6:
+        tmp = node[1]
+        bbox = [[tmp[0], tmp[1]], [tmp[2], tmp[3]]]
+        mid = [0.5 * (tmp[0] + tmp[2]), 0.5 * (tmp[1] + tmp[3])]
+        for i in range(4):
+            x = (mid[0], bbox[i & 1][0])
+            y = (mid[1], bbox[i >> 1][1])
+            newbbox = [min(x), min(y), max(x), max(y)]
+            newshps = filter(lambda k: self.is_feature_intersect_box(k, newbbox), node[0])
+            node[2].append(
+                self.birth([newshps, newbbox, [], node[-1] + 1]))  # feature_id_set, boundingbox, children, depth
+        # if node[-1]<6:
         #    print node[-1], node[1]
         return node
 
@@ -1337,63 +1368,63 @@ class Editor(Writer):
         choice = len(node[0])
         if choice == 0:
             return -1
-            
+
         if choice < 100:
-            return sorted([(distp2p(self.shape(k).points[0],[x,y]),k) for k in node[0]])[0][1]
-            
-        if len(node[2])>0:
-            midx=0.5*(node[1][0]+node[1][2])
-            midy=0.5*(node[1][1]+node[1][3])            
-            return self.treeClosest(x,y,node[2][(x>midx)+(y>midy)*2])    
-        
-        return sorted([(distp2p(self.shape(k).points[0],[x,y]),k) for k in node[0]])[0][1]
-        
-    def treeQuery(self,x,y,node):
-        choice=len(node[0])
-        if choice==0:
+            return sorted([(distp2p(self.shape(k).points[0], [x, y]), k) for k in node[0]])[0][1]
+
+        if len(node[2]) > 0:
+            midx = 0.5 * (node[1][0] + node[1][2])
+            midy = 0.5 * (node[1][1] + node[1][3])
+            return self.treeClosest(x, y, node[2][(x > midx) + (y > midy) * 2])
+
+        return sorted([(distp2p(self.shape(k).points[0], [x, y]), k) for k in node[0]])[0][1]
+
+    def treeQuery(self, x, y, node):
+        choice = len(node[0])
+        if choice == 0:
             return -1
         if choice == 1:
-            return node[0][0] if self[node[0][0]].does_contain_points(x,y) else -1
-        if len(node[2])>0:
-            midx=0.5*(node[1][0]+node[1][2])
-            midy=0.5*(node[1][1]+node[1][3])            
-            return self.treeQuery(x,y,node[2][(x>midx)+(y>midy)*2])    
-        tmp=node[0][-2]
+            return node[0][0] if self[node[0][0]].does_contain_points(x, y) else -1
+        if len(node[2]) > 0:
+            midx = 0.5 * (node[1][0] + node[1][2])
+            midy = 0.5 * (node[1][1] + node[1][3])
+            return self.treeQuery(x, y, node[2][(x > midx) + (y > midy) * 2])
+        tmp = node[0][-2]
         for p in node[0]:
-            if self[p].does_contain_points(x,y):
+            if self[p].does_contain_points(x, y):
                 return p
             if p == tmp:
                 return node[0][-1]
 
-    def printNode(self, node, f):        
-        f.write(str(node[-1])+'\n')
+    def printNode(self, node, f):
+        f.write(str(node[-1]) + '\n')
         for i in node[1]:
-            f.write(str(i)+' ')
+            f.write(str(i) + ' ')
         f.write('\n')
         for i in node[0]:
-            f.write(str(i)+' ')
+            f.write(str(i) + ' ')
         f.write('\n')
         for k in node[2]:
-            self.printNode(k,f)
-            
-    def readNode(self,f):
-        depth=int(f.readline().strip())
-        bbox=map(float,f.readline().strip().split())
-        choice=map(int,f.readline().strip().split())
-        if len(choice)<2 or depth>10:
-            child=[]            
-        else:
-            child=[self.readNode(f) for i in range(4)]
-        #if depth < 3:
-        #    print depth, bbox
-        return [choice,bbox,child,depth]
+            self.printNode(k, f)
 
-    def buildQuadTree(self,quadFile=None):
-        if quadFile == None:
-            self.root=self.birth([range(self.lens),self.bbox(),[],0])
+    def readNode(self, f):
+        depth = int(f.readline().strip())
+        bbox = map(float, f.readline().strip().split())
+        choice = map(int, f.readline().strip().split())
+        if len(choice) < 2 or depth > 10:
+            child = []
         else:
-            f=open(quadFile)
-            self.root=self.readNode(f)
+            child = [self.readNode(f) for i in range(4)]
+        # if depth < 3:
+        #    print depth, bbox
+        return [choice, bbox, child, depth]
+
+    def buildQuadTree(self, quadFile=None):
+        if quadFile == None:
+            self.root = self.birth([range(self.lens), self.bbox(), [], 0])
+        else:
+            f = open(quadFile)
+            self.root = self.readNode(f)
             f.close()
 
     def loadFromTxt(self, inFile):
@@ -1403,20 +1434,22 @@ class Editor(Writer):
                     line = input.next()
                     if line == '\n':
                         line = input.next()
-                    self[i].p[j]=map(float,line.split()[:2])
+                    self[i].p[j] = map(float, line.split()[:2])
 
     def export2txt(self, outFile):
-        with open(outFile,'w') as output:
-            output.write('\n'.join(''.join('%f %f\n'%(p[0],p[1]) for p in self[i].p) for i in range(self.lens)))
-    
-    #def DPSimplify(self, epsilon):
+        with open(outFile, 'w') as output:
+            output.write('\n'.join(''.join('%f %f\n' % (p[0], p[1]) for p in self[i].p) for i in range(self.lens)))
+
+    # def DPSimplify(self, epsilon):
     #    for i in range(self.lens):
     #        self[i].DPSimplify(epsilon)
     #    return self
-    
-def areaOf(polygon,parts=[0]):
+
+
+def areaOf(polygon, parts=[0]):
     pp = list(parts) + [len(polygon)]
-    return sum(simplex_area(polygon[pp[i]:pp[i+1]]) for i in range(len(pp) - 1))
+    return sum(simplex_area(polygon[pp[i]:pp[i + 1]]) for i in range(len(pp) - 1))
+
 
 def simplex_area(polygon):
     """
@@ -1426,52 +1459,57 @@ def simplex_area(polygon):
         return 0
     ans = 0
     last = polygon[0]
-    for i in range(1, len(polygon))+[0]:
+    for i in range(1, len(polygon)) + [0]:
         new = polygon[i]
-        ans += last[1]*new[0]-last[0]*new[1]
+        ans += last[1] * new[0] - last[0] * new[1]
         last = new
-    return ans/2.0
+    return ans / 2.0
 
-def lengthOf(polygon, parts=[0]):    
+
+def lengthOf(polygon, parts=[0]):
     pp = list(parts) + [len(polygon)]
-    return sum(distp2p(polygon[k],polygon[k+1]) for i in range(len(pp)-1) for k in range(pp[i],pp[i+1] - 1))
+    return sum(distp2p(polygon[k], polygon[k + 1]) for i in range(len(pp) - 1) for k in range(pp[i], pp[i + 1] - 1))
 
 
-def distp2p(a,b):
-    return math.sqrt((a[0]-b[0])**2+(a[1]-b[1])**2)
+def distp2p(a, b):
+    return math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
 
-#def DPSimplify(polygon, epsilon, parts=[0]):
+
+# def DPSimplify(polygon, epsilon, parts=[0]):
 #    pp = list(parts) + [len(polygon)]
 #    res = [rdp(polygon[pp[i]:pp[i+1]], epsilon) for i in range(len(pp) - 1)]
 #    newparts = [0] * len(parts)
 #    for i in range(len(parts)-1):
 #        newparts[i+1] = newparts[i] + len(res[i])        
 #    return [p for pts in res for p in pts], newparts
-    
-def mergeshp(e1,e2):
+
+def mergeshp(e1, e2):
     """ merge editor1 and editor2 into one shapefile if their fields and
     shapeType matches"""
-    if e1.shapeType==e2.shapeType and e1.fields==e2.fields:
-        e=Editor(None,e1.shapeType)
-        e.fields=e1.fields
-        e._shapes=e1._shapes+e2._shapes
-        e.records=e1.records+e2.records
-        e.lens=e1.lens+e2.lens
+    if e1.shapeType == e2.shapeType and e1.fields == e2.fields:
+        e = Editor(None, e1.shapeType)
+        e.fields = e1.fields
+        e._shapes = e1._shapes + e2._shapes
+        e.records = e1.records + e2.records
+        e.lens = e1.lens + e2.lens
         return e
     else:
         raise Exception('attempt to merge unmatch shapefiles!')
 
+
 def buildQuadTree(shpfile):
-	e = Editor(shpfile)
-	e.buildQuadTree()
-	with open(shpfile.partition('.')[0]+'.qdt','w') as output:
-		e.printNode(e.root,output)
+    e = Editor(shpfile)
+    e.buildQuadTree()
+    with open(shpfile.partition('.')[0] + '.qdt', 'w') as output:
+        e.printNode(e.root, output)
+
 
 # Begin Testing
 def test():
     import doctest
     doctest.NORMALIZE_WHITESPACE = 1
     doctest.testfile("README.txt", verbose=1)
+
 
 if __name__ == "__main__":
     """
@@ -1481,4 +1519,3 @@ if __name__ == "__main__":
     2.3.
     """
     test()
-

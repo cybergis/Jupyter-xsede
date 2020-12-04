@@ -2,11 +2,59 @@ import os
 import time
 
 from .keeling import KeelingJob, KeelingSBatchScript
+from .comet import CometSBatchScript
 from .base import BaseScript
 from .utils import get_logger
 from .connection import SSHConnection
 
 logger = get_logger()
+
+WRFHYDRO_SBATCH_SCRIPT_TEMPLATE = \
+'''#!/bin/bash
+
+#SBATCH --job-name=$job_name
+#SBATCH --ntasks=$ntasks
+#SBATCH --time=$walltime
+#SBATCH --partition=$partition
+
+## allocated hostnames
+echo $$SLURM_JOB_NODELIST
+
+$module_config
+
+## compile mode from source
+singularity exec -B $remote_job_folder_path:/workspace $remote_singularity_img_path python /workspace/compile_wrfhydro.py
+
+## change wrf_hydro.exe permission
+chmod +x $remote_model_folder_path/wrf_hydro.exe
+
+## count number of folders job_xxxx
+## $$ is to escape single dollar sign, which are used as bash variables later
+## See: https://docs.python.org/2.4/lib/node109.html
+job_num=$$(find $remote_model_folder_path/job_* -type d | wc -l)
+
+## see: https://docs.nersc.gov/jobs/examples/#multiple-parallel-jobs-sequentially
+## loop through 0 -- job_num-1
+for (( job_index=0; job_index<$$job_num; job_index++ ))
+do
+  echo $$job_index
+
+  ## parallel run
+  srun --mpi=pmi2 singularity exec -B $remote_job_folder_path:/workspace $remote_singularity_img_path python /workspace/run_mpi_call_singularity.py $$job_index
+
+  ## sequential run for testing
+  ## singularity exec -B $remote_job_folder_path:/workspace $remote_singularity_img_path python /workspace/run_mpi_call_singularity.py $$job_index
+
+  if [ $$job_index -lt $$((job_num-1)) ]
+    then
+       echo "sleep for 5s"
+       sleep 5
+  fi
+done
+
+singularity exec -B $remote_job_folder_path:/workspace $remote_singularity_img_path python /workspace/copy_outputs.py
+
+'''
 
 
 class WRFHydroKeelingSBatchScript(KeelingSBatchScript):
@@ -39,60 +87,12 @@ class WRFHydroKeelingSBatchScript(KeelingSBatchScript):
 
     file_name = "wrfhydro.sbatch"
 
-    SCRIPT_TEMPLATE = \
-'''#!/bin/bash
+    SCRIPT_TEMPLATE = WRFHYDRO_SBATCH_SCRIPT_TEMPLATE
 
-#SBATCH --job-name=$jobname
-#SBATCH --ntasks=$ntasks
-#SBATCH --time=$walltime
-#SBATCH --partition=$partition
+    def __init__(self, walltime, ntasks, *args, **kargs):
+        super().__init__(walltime, ntasks, *args, **kargs)
 
-## allocated hostnames
-echo $$SLURM_JOB_NODELIST
-
-$module_config
-
-## compile mode from source
-singularity exec -B $remote_job_folder_path:/workspace $remote_singularity_img_path python /workspace/compile_wrfhydro.py
-  
-## change wrf_hydro.exe permission
-chmod +x $remote_model_folder_path/wrf_hydro.exe
-
-## count number of folders job_xxxx
-## $$ is to escape single dollar sign, which are used as bash variables later
-## See: https://docs.python.org/2.4/lib/node109.html
-job_num=$$(find $remote_model_folder_path/job_* -type d | wc -l)
-
-## see: https://docs.nersc.gov/jobs/examples/#multiple-parallel-jobs-sequentially
-## loop through 0 -- job_num-1
-for (( job_index=0; job_index<$$job_num; job_index++ ))
-do
-  echo $$job_index
-  
-  ## parallel run
-  srun --mpi=pmi2 singularity exec -B $remote_job_folder_path:/workspace $remote_singularity_img_path python /workspace/run_mpi_call_singularity.py $$job_index
-  
-  ## sequential run for testing
-  ## singularity exec -B $remote_job_folder_path:/workspace $remote_singularity_img_path python /workspace/run_mpi_call_singularity.py $$job_index
-
-  if [ $$job_index -lt $$((job_num-1)) ]
-    then
-       echo "sleep for 5s"
-       sleep 5
-  fi
-done
-
-singularity exec -B $remote_job_folder_path:/workspace $remote_singularity_img_path python /workspace/copy_outputs.py
-
-'''
-
-    def __init__(self, walltime, ntasks, jobname,
-                 *args, **kargs):
-
-        super().__init__(walltime, ntasks, jobname, None, *args, **kargs)
-        self.remote_workspace_folder_path = "/data/cigi/scratch/cigi-gisolve"
         self.remote_singularity_img_path = "/data/keeling/a/cigi-gisolve/simages/wrfhydro_xenial.simg"
-
         self.module_config = "module list"
         self.partition = "node"  # node sesempi
 
@@ -208,8 +208,7 @@ model.compile(compile_dir)
 
 
 class WRFHydroKeelingJob(KeelingJob):
-
-    JOB_ID_PREFIX = "WRFHydro_"
+    job_name = "WRFHydro"
     sbatch_script_class = WRFHydroKeelingSBatchScript
 
     def prepare(self):
@@ -230,14 +229,13 @@ class WRFHydroKeelingJob(KeelingJob):
         self.connection.download(self.remote_slurm_out_file_path, self.local_job_folder_path)
 
 
-class WRFHydroCometSBatchScript(WRFHydroKeelingSBatchScript):
+class WRFHydroCometSBatchScript(CometSBatchScript):
+    file_name = "wrfhydro.sbatch"
+    SCRIPT_TEMPLATE = WRFHYDRO_SBATCH_SCRIPT_TEMPLATE
 
-    def __init__(self, walltime, ntasks, jobname,
-                 *args, **kargs):
-        super().__init__(walltime, ntasks, jobname, None, *args, **kargs)
-        # Lustre Comet scratch filesystem: /oasis/scratch/comet/$USER/temp_project
-        # see: https://www.sdsc.edu/support/user_guides/comet.html
-        self.remote_workspace_folder_path = "/oasis/scratch/comet/cybergis/temp_project"
+    def __init__(self, walltime, ntasks, *args, **kargs):
+        super().__init__(walltime, ntasks, *args, **kargs)
+
         self.remote_singularity_img_path = "/home/cybergis/SUMMA_IMAGE/wrfhydro_xenial.simg"
         self.module_config = "module list && module load singularity/3.5 && module list"
         self.partition = "compute"  # compute, shared
@@ -250,7 +248,6 @@ class WRFHydroCometJob(WRFHydroKeelingJob):
 def WRFHydroSubmission(workspace, mode_source_folder_path, nodes, wtime,
                        hpc="keeling",
                        key=None, user=None, passwd=None):
-
     server_url = "keeling.earth.illinois.edu"
     user_name = "cigi-gisolve"
     WRFHydroSBatchScriptClass = WRFHydroKeelingSBatchScript
@@ -265,17 +262,16 @@ def WRFHydroSubmission(workspace, mode_source_folder_path, nodes, wtime,
         user_name = user
 
     con = SSHConnection(server_url,
-                                user_name=user_name,
-                                key_path=key,
-                                user_pw=passwd)
+                        user_name=user_name,
+                        key_path=key,
+                        user_pw=passwd)
 
-    wrfhydro_sbatch = WRFHydroSBatchScriptClass(wtime, nodes, "wrfhydro")
+    wrfhydro_sbatch = WRFHydroSBatchScriptClass(wtime, nodes)
 
     local_workspace_folder_path = workspace
     local_model_source_folder_path = mode_source_folder_path
     job = WRFHydroJobClass(local_workspace_folder_path, local_model_source_folder_path,
-                           con, wrfhydro_sbatch,
-                             name="WRFHydro")
+                           con, wrfhydro_sbatch)
     job.go()
 
     for i in range(600):

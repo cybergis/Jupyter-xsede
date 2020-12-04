@@ -40,7 +40,7 @@ class BaseScript(object):
     def generate_script(self, local_folder_path=None, _additional_parameter_dict=None):
         local_folder_path = str(local_folder_path)
         parameter_dict = self.parameter_dict()
-        self.logger.info(parameter_dict)
+        self.logger.debug(parameter_dict)
         if isinstance(_additional_parameter_dict, dict):
             parameter_dict.update(_additional_parameter_dict)
 
@@ -55,7 +55,7 @@ class BaseScript(object):
             with open(_local_path, 'w') as f:
                 f.write(script)
             os.chmod(_local_path, 0o775)
-            self.logger.debug("{} saved to {}".format(self.name, _local_path))
+            self.logger.debug("{} saved to {}".format(self.file_name, _local_path))
             return _local_path
         else:
             return script
@@ -67,34 +67,32 @@ class BaseScript(object):
 class BaseJob(object):
     def __init__(self):
         self.logger = get_logger()
-    pass
 
 
 class SBatchScript(BaseScript):
-    name = "SBatchScript"
     file_name = "job.sbatch"
 
     SCRIPT_TEMPLATE = \
-'''#!/bin/bash
-#SBATCH --job-name=$jobname
-#SBATCH --ntasks=$ntasks
-#SBATCH --time=$walltime
-
-srun $exe'''
+        '''#!/bin/bash
+        #SBATCH --job-name=$job_name
+        #SBATCH --ntasks=$ntasks
+        #SBATCH --time=$walltime
+        
+        srun $exe'''
 
     # see: https://slurm.schedmd.com/sbatch.html
-    walltime = "01:00:00"   # 1 hour
+    walltime = "01:00:00"  # 1 hour
     ntasks = int(1)  # number of task
-    jobname = ""
+    job_name = ""
     stdout = None  # Path to output
     stderr = None  # Path to err
     exe = ""
 
-    def __init__(self, walltime_hour, ntasks, jobname, exe, stdout=None, stderr=None):
+    def __init__(self, walltime_hour, ntasks, name="sbatch", exe=None, stdout=None, stderr=None):
         super().__init__()
         self.walltime = "{:02d}:00:00".format(int(walltime_hour))
         self.ntasks = ntasks
-        self.jobname = jobname
+        self.job_name = name
         self.exe = exe
         self.stdout = stdout
         self.stderr = stderr
