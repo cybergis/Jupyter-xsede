@@ -72,8 +72,8 @@ class HelloWorldKeelingJob(SlurmJob):
 
 class HelloWorldCometSBatchScript(CometSBatchScript):
 
-    file_name = "helloworld.py"
-    SCRIPT_TEMPLATE = HELLOWORLD_USER_SCRIPT_TEMPLATE
+    file_name = "helloworld.sbatch"
+    SCRIPT_TEMPLATE = HELLOWORLD_SBATCH_SCRIPT_TEMPLATE
 
 
 class HelloWorldCometJob(HelloWorldKeelingJob):
