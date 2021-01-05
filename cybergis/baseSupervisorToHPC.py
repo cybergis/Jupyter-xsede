@@ -1,9 +1,11 @@
-import os
 from .base import SBatchScript
 from .connection import SSHConnection
 from .job import SlurmJob
 from .keeling import KeelingSBatchScript, KeelingJob
 from .utils import get_logger
+
+
+logger = get_logger()
 
 
 class BaseSupervisorToHPC(object):
@@ -105,24 +107,27 @@ class BaseSupervisorToHPC(object):
 
         job.go()
 
-        return {
+        return_dict = {
             "remote_id": job.remote_id,
             "remote_job_folder_path": job.remote_job_folder_path,
-            "remote_model_folder_path": job.remote_model_folder_path,
             "local_job_folder_path": job.local_job_folder_path,
+            "remote_model_folder_path": job.remote_model_folder_path,
+            "local_model_folder_path": job.local_model_folder_path,
             "remote_slurm_out_file_path": job.remote_slurm_out_file_path,
         }
+
+        return return_dict
 
     def job_status(self, remote_id):
         return SlurmJob.job_status_pbs(None, remote_id, self.connection)
 
     def download(
             self,
-            remote_output_parent_folder_path,
-            local_job_folder_path,
+            remote_output_folder_path,
+            local_output_parent_folder_path,
     ):
         self.connection.download(
-            os.path.join(remote_output_parent_folder_path, "output"),
-            local_job_folder_path,
+            remote_output_folder_path,
+            local_output_parent_folder_path,
             remote_is_folder=True,
         )

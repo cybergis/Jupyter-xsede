@@ -17,21 +17,24 @@ HELLOWORLD_SBATCH_SCRIPT_TEMPLATE = \
 
 ## allocated hostnames
 echo "Compute node(s) assigned: $$SLURM_JOB_NODELIST"
+python helloworld.py $remote_model_folder_path/in.txt $remote_model_folder_path/output/out.txt
 
-mkdir -p $remote_job_folder_path/output
-python helloworld.py $remote_model_folder_path/in.txt $remote_job_folder_path/output/out.txt
-
-cp slurm-$$SLURM_JOB_ID.out $remote_job_folder_path/output
+cp slurm-$$SLURM_JOB_ID.out $remote_model_folder_path/output
 '''
 
 HELLOWORLD_USER_SCRIPT_TEMPLATE = \
 '''
 import os
 import sys
+# input_file
 in_path = sys.argv[1]
+# output_file
 out_path = sys.argv[2]
 with open(in_path, "r") as fin:
     input = fin.readlines()
+output_dir = os.path.dirname(out_path)
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
 with open(out_path, "w") as fout:
     fout.write("Hello World!" + os.linesep)
     fout.writelines(input)
@@ -63,7 +66,8 @@ class HelloWorldKeelingJob(SlurmJob):
                                     _additional_parameter_dict=self.to_dict())
 
     def download(self):
-        self.connection.download(os.path.join(self.remote_job_folder_path, "output"),
+        # only used in 2-layer job submission
+        self.connection.download(os.path.join(self.remote_model_folder_path, "output"),
                                  self.local_job_folder_path, remote_is_folder=True)
 
 
@@ -80,6 +84,7 @@ from .connection import SSHConnection
 import time
 
 
+# test 2-layer job submission
 def submit(workspace, mode_source_folder_path, nodes, wtime,
            hpc="keeling",
            key=None, user=None, passwd=None, **kwargs):
