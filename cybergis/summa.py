@@ -58,22 +58,23 @@ SUMMA_USER_SCRIPT_TEMPLATE = \
 """
 import json
 import os
+from pathlib import Path
+import traceback
 import numpy as np
 from mpi4py import MPI
 import subprocess
 import pysumma as ps
 
+# init mpi
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
 hostname = MPI.Get_processor_name()
-
 print("{}/{}: {}".format(rank, size, hostname))
 
 job_folder_path = "$singularity_job_folder_path"
 instance = "$remote_model_folder_name"
 instance_path = os.path.join(job_folder_path, instance)
-json_path = os.path.join(job_folder_path, instance, "summa_options.json")
 
 workers_folder_name = "workers"
 workers_folder_path = os.path.join(job_folder_path, workers_folder_name)
@@ -82,43 +83,51 @@ if rank == 0:
    os.system("mkdir -p {}".format(workers_folder_path))
 comm.Barrier()
 
-try:
-    with open(json_path) as f:
-        options_dict = json.load(f)
-except:
-    options_dict = {}
-options_list = [(k,v) for k,v in options_dict.items()]
-options_list.sort()
-groups = np.array_split(options_list, size)
-config_pair_list = groups[rank].tolist()
-
 # copy instance folder to workers folder
 new_instance_path = os.path.join(workers_folder_path, instance + "_{}".format(rank))
 os.system("cp -rf {} {}".format(instance_path, new_instance_path))
-# sync: make every rank finishes copying
+
+# each process to call install.sh to localize SUMMA model
 subprocess.run(
     ["./installTestCases_local.sh"], cwd=new_instance_path,
 )
-comm.Barrier()
+
+json_path = os.path.join(new_instance_path, "summa_options.json")
+ensemble_flag = True
+if not os.path.isfile(json_path):
+    ensemble_flag = False
+
+try:
+    with Path(json_path) as f:
+        f.write_text(f.read_text().replace('PWD', new_instance_path)
+        .replace('<PWD>', new_instance_path)
+        .replace('BASEDIR', new_instance_path)
+        .replace('<BASEDIR>', new_instance_path))
+    with open(json_path) as f:
+        options_dict = json.load(f)
+except Exception as ex:
+    print("{}/{}: Error in parsing summa_options.js: {}".format(rank, size, ex))
+    options_dict = {}
+
+# group config_pairs
+options_list = [(k,v) for k,v in options_dict.items()]
+options_list.sort()
+groups = np.array_split(options_list, size)
+# assign to process by rank
+config_pair_list = groups[rank].tolist()
+print("{}/{}: {}".format(rank, size, str(config_pair_list)))
+
+# if not a ensemble run, assign a fake config_pair to rank 0
+if rank == 0 and (not ensemble_flag):
+    config_pair_list = [("_single_run", {})]
 
 # file manager path
 file_manager = os.path.join(new_instance_path, "$file_manager_rel_path")
-print(file_manager)
+print("API submitted file_manager {}".format(file_manager))
 executable = "/usr/bin/summa.exe"
 
-s = ps.Simulation(executable, file_manager)
-# fix setting_path to point to this worker
-s.manager["settingsPath"].value = s.manager["settingsPath"].value.replace(instance_path, new_instance_path) 
-s.manager["outputPath"].value = os.path.join(instance_path, "output/")
-
-# Dont not use this as it rewrites every files including those in original folder -- Race condition
-#s._write_configuration()
-
-# Instead, only rewrite filemanager
-s.manager.write()
-
-if len(config_pair_list) == 0:
-    config_pair_list = [("_test", {})]
+#if len(config_pair_list) == 0:
+#    config_pair_list = [("_test", {})]
 for config_pair in config_pair_list:
 
     try:
@@ -126,23 +135,34 @@ for config_pair in config_pair_list:
         config = config_pair[1]
         print(name)
         print(config)
-        print(type(config))
 
-        # create a new Simulation obj each time to avoid potential overwriting issue or race condition
-        ss = ps.Simulation(executable, file_manager, False)
-        ss.initialize()
+        if "file_manager" in config:
+            file_manager = config["file_manager"]
+            print("Get file_manager form summa_options.json {}".format(file_manager))
+        
+        # init with file_manager
+        ss = ps.Simulation(executable, file_manager)
+        print("Init with file_manager: {}".format(file_manager))
+        # apply config
         ss.apply_config(config)
+        # change output folder
+        ss.manager["outputPath"].value = ss.manager["outputPath"].value.replace(new_instance_path, instance_path)
+        # write configs in mem to disk
+        ss.manager.write()
+        # run model
         ss.run('local', run_suffix=name)
-        print(ss.stdout)
+        # print debug info
+        print(ss.stdout) 
+        
     except Exception as ex:
         print("Error in ({}/{}) {}: {}".format(rank, size, name, str(config)))
         print(ex)
+        print(traceback.format_exc())
 
 comm.Barrier()
 print("Done in {}/{} ".format(rank, size))
 
 """
-
 
 class SummaUserScript(BaseScript):
     SCRIPT_TEMPLATE = SUMMA_USER_SCRIPT_TEMPLATE

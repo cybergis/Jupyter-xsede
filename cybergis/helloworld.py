@@ -26,9 +26,9 @@ HELLOWORLD_USER_SCRIPT_TEMPLATE = \
 '''
 import os
 import sys
-# input_file
+# input
 in_path = sys.argv[1]
-# output_file
+# output
 out_path = sys.argv[2]
 with open(in_path, "r") as fin:
     input = fin.readlines()
