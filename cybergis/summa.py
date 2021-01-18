@@ -99,10 +99,10 @@ if not os.path.isfile(json_path):
 
 try:
     with Path(json_path) as f:
-        f.write_text(f.read_text().replace('PWD', new_instance_path)
-        .replace('<PWD>', new_instance_path)
-        .replace('BASEDIR', new_instance_path)
-        .replace('<BASEDIR>', new_instance_path))
+        f.write_text(f.read_text().replace('<PWD>', new_instance_path)
+        .replace('PWD', new_instance_path)
+        .replace('<BASEDIR>', new_instance_path)
+        .replace('BASEDIR', new_instance_path))
     with open(json_path) as f:
         options_dict = json.load(f)
 except Exception as ex:
