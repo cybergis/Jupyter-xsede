@@ -9,6 +9,8 @@ class KeelingSBatchScript(SBatchScript):
                  *args, **kargs):
         super().__init__(walltime, ntasks, *args, **kargs)
         self.remote_workspace_folder_path = "/data/cigi/scratch/cigi-gisolve"
+        if self.partition is None:
+            self.partition = "node"  # node or sesempi
 
 
 class KeelingJob(SlurmJob):

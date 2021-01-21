@@ -16,6 +16,8 @@ class CometSBatchScript(SBatchScript):
         # Lustre Comet scratch filesystem: /oasis/scratch/comet/$USER/temp_project
         # see: https://www.sdsc.edu/support/user_guides/comet.html
         self.remote_workspace_folder_path = "/oasis/scratch/comet/cybergis/temp_project"
+        if self.partition is None:
+            self.partition = "compute"  # compute, shared
 
 
 class CometJob(SlurmJob):

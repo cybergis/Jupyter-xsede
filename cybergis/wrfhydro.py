@@ -94,7 +94,6 @@ class WRFHydroKeelingSBatchScript(KeelingSBatchScript):
 
         self.remote_singularity_img_path = "/data/keeling/a/cigi-gisolve/simages/wrfhydro_xenial.simg"
         self.module_config = "module list"
-        self.partition = "node"  # node sesempi
 
 
 class WRFHydroUserScript(BaseScript):
@@ -238,7 +237,6 @@ class WRFHydroCometSBatchScript(CometSBatchScript):
 
         self.remote_singularity_img_path = "/home/cybergis/SUMMA_IMAGE/wrfhydro_xenial.simg"
         self.module_config = "module list && module load singularity/3.5 && module list"
-        self.partition = "compute"  # compute, shared
 
 
 class WRFHydroCometJob(WRFHydroKeelingJob):

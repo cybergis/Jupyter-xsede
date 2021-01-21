@@ -22,6 +22,7 @@ class BaseSupervisorToHPC(object):
                  **kwargs,
                  ):
         self.logger = get_logger()
+        self.parameters = parameters
         self.username = username
         self.private_key_path = private_key_path
         self.user_pw = user_pw
@@ -92,8 +93,9 @@ class BaseSupervisorToHPC(object):
             _SBatchScriptClass = self.__class__._CometSBatchScriptClass
             _JobClass = self.__class__._CometJobClass
 
+        kargs.update(self.parameters)
         _sbatch_obj = _SBatchScriptClass(
-            int(self.wt), self.node
+            int(self.wt), self.node, **kargs
         )
 
         job = _JobClass(
