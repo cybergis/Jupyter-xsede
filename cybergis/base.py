@@ -83,9 +83,9 @@ class SBatchScript(BaseScript):
 
     # see: https://slurm.schedmd.com/sbatch.html
 
-    def __init__(self, walltime_hour, ntasks, *args, **kwargs):
+    def __init__(self, walltime, ntasks, *args, **kwargs):
         super().__init__()
-        self.walltime = "{:02d}:00:00".format(int(walltime_hour))
+        self.walltime = "{:02d}:00:00".format(int(walltime))
         self.ntasks = int(ntasks)
         self.job_name = kwargs.get("name")
         self.exe = kwargs.get("exe")
