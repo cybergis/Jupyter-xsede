@@ -1,23 +1,24 @@
 Bootstrap: docker
 From: ubuntu:16.04
 
+# Drew 01/15/2021
 # "mount" host slurm commands into singularity container so can call submit job from within;
 # actually achieved by sshing to host HPC from singularity container to call slurm commands on host HPC
 # see: https://github.com/gearslaboratory/gears-singularity/blob/d7823b98e4c823a8747b048f6f53e2b3d4f061d5/singularity-definitions/development/Singularity.gears-rfsrc-openmpi#L90-L153
 # see: https://groups.google.com/a/lbl.gov/g/singularity/c/syLcsIWWzdo/m/XeKDx4GKBwAJ
-# Note 1: need to set up prviate key login from singularity container to the HPC
-#         since singularity container runs on HPC and the user in container is then same as the host HPC user
-#         need to create ssh key pair (ssh-keygen -t rsa) at ~/.ssh on HPC and put public key into ~/.ssh/.authorized_keys
-#         which allows ssh user@hpc from both hpc and singularity container
+# Note 1: need to set up prviate key login from singularity container to the host HPC
+#         since singularity container runs on HPC and the user in container is same as the host HPC user
+#         need to create ssh key pair (ssh-keygen -t rsa) at ~/.ssh on HPC and put public key into ~/.ssh/.authorized_keys on HPC
+#         which allows ssh user@hpc from both host HPC itself and from within singularity container
 #         tested on keeling7 and comet
 #         singularity exec slurm.simg sbatch --version
 # Note 2: Special issue on keeling6 (singularity 2.5.2-dist on Scientific Linux 6.10) 
-#         "ENABLE OVERLAY" is not working at all, so it can NOT  mount a folder on host into container if the path does not pre-exsiting in container;
+#         "ENABLE OVERLAY" is not working at all, so it can NOT  mount a folder on host into container if the path is NOT pre-exsiting in container;
 #         keeling6 home folder is at /data/keeling/a/XXXXXX, when run a singularity container, keeling6 mounts user folder to /home/XXXXXX
-#         but the $HOME and ~ variable in container is still set to /data/keeling/a/XXXXXX
-#         this causes some system in contianer to look for non-existing /data/keeling/a/XXXX for home-folder related things
-#         including .ssh/ (so can not ssh to keeling6 from within container)
-#         a workaround: create a mount point inside container in def file
+#         but the $HOME (and ~) variable in container is still set to /data/keeling/a/XXXXXX
+#         this causes some system logic in contianer to look for non-existing home folder /data/keeling/a/XXXX for some related actions
+#         like looking for priviate key file and known_hosts in .ssh/ (causing failure of ssh to keeling6 from within container)
+#         a workaround: create a mount point /data/keeling/a/XXXXXX for container in definition file
 #         at run time, manually mount /data/keeling/a/XXXXXX:/data/keeling/a/XXXXXX
 #         singularity exec -B /data/keeling/a/cigi-gisolve:/data/keeling/a/cigi-gisolve slurm.simg sbatch --version         
 
