@@ -22,9 +22,20 @@ class BaseSupervisorToHPC(object):
                  **kwargs,
                  ):
         self.logger = get_logger()
+        self.parameters = parameters
+
         self.username = username
         self.private_key_path = private_key_path
         self.user_pw = user_pw
+
+        try:
+            for k, v in parameters.items():
+                if v == "undefined":
+                    parameters[k] = None
+            self.logger.error("*" * 200)
+            self.logger.error("parameters: {}".format(parameters))
+        except:
+            pass
         try:
             self.model_name = parameters["model"]
         except:
@@ -46,7 +57,7 @@ class BaseSupervisorToHPC(object):
         except:
             pass
         try:
-            self.wt = parameters["walltime"]
+            self.wt = parameters["walltime_hour"]
         except:
             pass
         try:
@@ -92,8 +103,9 @@ class BaseSupervisorToHPC(object):
             _SBatchScriptClass = self.__class__._CometSBatchScriptClass
             _JobClass = self.__class__._CometJobClass
 
+        kargs.update(self.parameters)
         _sbatch_obj = _SBatchScriptClass(
-            int(self.wt), self.node
+            int(self.wt), self.node, **kargs
         )
 
         job = _JobClass(

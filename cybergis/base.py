@@ -77,22 +77,16 @@ class SBatchScript(BaseScript):
         #SBATCH --job-name=$job_name
         #SBATCH --ntasks=$ntasks
         #SBATCH --time=$walltime
+        #SBATCH --partition=$partition
         
         srun $exe'''
 
     # see: https://slurm.schedmd.com/sbatch.html
-    walltime = "01:00:00"  # 1 hour
-    ntasks = int(1)  # number of task
-    job_name = ""
-    stdout = None  # Path to output
-    stderr = None  # Path to err
-    exe = ""
 
-    def __init__(self, walltime_hour, ntasks, name="sbatch", exe=None, stdout=None, stderr=None):
+    def __init__(self, walltime, ntasks, *args, **kwargs):
         super().__init__()
-        self.walltime = "{:02d}:00:00".format(int(walltime_hour))
-        self.ntasks = ntasks
-        self.job_name = name
-        self.exe = exe
-        self.stdout = stdout
-        self.stderr = stderr
+        self.walltime = "{:02d}:00:00".format(int(walltime))
+        self.ntasks = int(ntasks)
+        self.job_name = kwargs.get("name")
+        self.exe = kwargs.get("exe")
+        self.partition = kwargs.get("partition")

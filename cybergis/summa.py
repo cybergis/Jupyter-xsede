@@ -39,7 +39,6 @@ class SummaKeelingSBatchScript(KeelingSBatchScript):
         super().__init__(walltime, ntasks, *args, **kargs)
         self.remote_singularity_img_path = "/data/keeling/a/cigi-gisolve/simages/summa3_xenial.simg"
         self.module_config = "module list"
-        self.partition = "node"  # node sesempi
 
 
 class SummaCometSBatchScript(CometSBatchScript):
