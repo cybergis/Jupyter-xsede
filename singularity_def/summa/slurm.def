@@ -1,0 +1,92 @@
+Bootstrap: docker
+From: ubuntu:16.04
+
+# "mount" host slurm commands into singularity container so can call submit job from within;
+# actually achieved by sshing to host HPC from singularity container to call slurm commands on host HPC
+# see: https://github.com/gearslaboratory/gears-singularity/blob/d7823b98e4c823a8747b048f6f53e2b3d4f061d5/singularity-definitions/development/Singularity.gears-rfsrc-openmpi#L90-L153
+# see: https://groups.google.com/a/lbl.gov/g/singularity/c/syLcsIWWzdo/m/XeKDx4GKBwAJ
+# Note 1: need to set up prviate key login from singularity container to the HPC
+#         since singularity container runs on HPC and the user in container is then same as the host HPC user
+#         need to create ssh key pair (ssh-keygen -t rsa) at ~/.ssh on HPC and put public key into ~/.ssh/.authorized_keys
+#         which allows ssh user@hpc from both hpc and singularity container
+#         tested on keeling7 and comet
+#         singularity exec slurm.simg sbatch --version
+# Note 2: Special issue on keeling6 (singularity 2.5.2-dist on Scientific Linux 6.10) 
+#         "ENABLE OVERLAY" is not working at all, so it can NOT  mount a folder on host into container if the path does not pre-exsiting in container;
+#         keeling6 home folder is at /data/keeling/a/XXXXXX, when run a singularity container, keeling6 mounts user folder to /home/XXXXXX
+#         but the $HOME and ~ variable in container is still set to /data/keeling/a/XXXXXX
+#         this causes some system in contianer to look for non-existing /data/keeling/a/XXXX for home-folder related things
+#         including .ssh/ (so can not ssh to keeling6 from within container)
+#         a workaround: create a mount point inside container in def file
+#         at run time, manually mount /data/keeling/a/XXXXXX:/data/keeling/a/XXXXXX
+#         singularity exec -B /data/keeling/a/cigi-gisolve:/data/keeling/a/cigi-gisolve slurm.simg sbatch --version         
+
+%post
+  apt-get update && apt-get install -y openssh-client
+    ### SLURM FROM WITHIN THE CONTAINER VIA SSH
+
+  echo '#!/bin/bash
+ssh $USER@$HOSTNAME sacct $1' >> /usr/local/bin/sacct
+  
+  echo '#!/bin/bash
+ssh $USER@$HOSTNAME sacctmgr $1' >> /usr/local/bin/sacctmgr
+  
+  echo '#!/bin/bash
+ssh $USER@$HOSTNAME salloc $1' >> /usr/local/bin/salloc
+    
+  echo '#!/bin/bash
+ssh $USER@$HOSTNAME sattach $1' >> /usr/local/bin/sattach
+    
+  echo '#!/bin/bash
+ssh $USER@$HOSTNAME sbatch $1' >> /usr/local/bin/sbatch
+    
+  echo '#!/bin/bash
+ssh $USER@$HOSTNAME sbcast $1' >> /usr/local/bin/sbcast
+  
+  echo '#!/bin/bash
+ssh $USER@$HOSTNAME scancel $1' >> /usr/local/bin/scancel
+  
+  echo '#!/bin/bash
+ssh $USER@$HOSTNAME scontrol $1' >> /usr/local/bin/scontrol
+  
+  echo '#!/bin/bash
+ssh $USER@$HOSTNAME sdiag $1' >> /usr/local/bin/sdiag
+  
+  echo '#!/bin/bash
+ssh $USER@$HOSTNAME sgather $1' >> /usr/local/bin/sgather
+  
+  echo '#!/bin/bash
+ssh $USER@$HOSTNAME sinfo $1' >> /usr/local/bin/sinfo
+  
+  echo '#!/bin/bash
+ssh $USER@$HOSTNAME smap $1' >> /usr/local/bin/smap
+  
+  echo '#!/bin/bash
+ssh $USER@$HOSTNAME sprio $1' >> /usr/local/bin/sprio
+  
+  echo '#!/bin/bash
+ssh $USER@$HOSTNAME squeue $1' >> /usr/local/bin/squeue
+  
+  echo '#!/bin/bash
+ssh $USER@$HOSTNAME sreport $1' >> /usr/local/bin/sreport
+  
+  echo '#!/bin/bash
+ssh $USER@$HOSTNAME srun $1' >> /usr/local/bin/srun
+  
+  echo '#!/bin/bash
+ssh $USER@$HOSTNAME sshare $1' >> /usr/local/bin/sshare
+  
+  echo '#!/bin/bash
+ssh $USER@$HOSTNAME sstat $1' >> /usr/local/bin/sstat
+      
+  echo '#!/bin/bash
+ssh $USER@$HOSTNAME strigger $1' >> /usr/local/bin/strigger
+  
+  echo '#!/bin/bash
+ssh $USER@$HOSTNAME sview $1' >> /usr/local/bin/sview
+  
+  cd /usr/local/bin
+  chmod 755 sacct salloc sbatch scancel sdiag sinfo sprio sreport sshare strigger sacctmgr sattach sbcast scontrol sgather smap squeue srun sstat sview    
+  
+  mkdir -p /data/keeling/a/cigi-gisolve
+  cd ~
