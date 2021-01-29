@@ -14,6 +14,7 @@ HELLOWORLD_SBATCH_SCRIPT_TEMPLATE = \
 #SBATCH --job-name=$job_name
 #SBATCH --ntasks=$ntasks
 #SBATCH --time=$walltime
+#SBATCH --partition=$partition
 
 ## allocated hostnames
 echo "Compute node(s) assigned: $$SLURM_JOB_NODELIST"
