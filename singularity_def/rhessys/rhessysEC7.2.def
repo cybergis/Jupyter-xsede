@@ -1,0 +1,6 @@
+# singularity build summa3_xenial.simg summa3_xenial.def 
+# To fix 'No Space Left On Device" error 
+# export MYTMP=/var/tmp && rm -rvf $MYTMP/* && export SINGULARITY_LOCALCACHEDIR=$MYTMP && export SINGULARITY_CACHEDIR=$MYTMP && export SINGULARITY_TMPDIR=$MYTMP
+
+Bootstrap: docker
+From: davidchoi76/rhessys:v7.2
