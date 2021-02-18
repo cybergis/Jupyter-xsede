@@ -3,12 +3,14 @@ from .connection import *
 from .keeling import *
 from .comet import *
 from .summa import *
+from .rhessys import *
 from .utils import *
 from .job import *
 from .summaUI import *
 from .floret import *
 from .shapefile import *
 from .summaSupervisor import *
+from .rhessysSupervisor import *
 from .wrfhydro import *
 from .wrfhydroSupervisor import *
 from .baseSupervisorToHPC import *
