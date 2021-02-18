@@ -37,7 +37,7 @@ class RHESSysKeelingSBatchScript(KeelingSBatchScript):
     def __init__(self, walltime, ntasks,
                  *args, **kargs):
         super().__init__(walltime, ntasks, *args, **kargs)
-        self.remote_singularity_img_path = "/data/keeling/a/cigi-gisolve/simages/rhessys_20210201.sif"
+        self.remote_singularity_img_path = "/data/keeling/a/cigi-gisolve/simages/rhessys72.simg"
         self.module_config = "module list"
 
 class RHESSysCometSBatchScript(CometSBatchScript):
@@ -47,7 +47,7 @@ class RHESSysCometSBatchScript(CometSBatchScript):
     def __init__(self, walltime, ntasks, *args, **kargs):
         super().__init__(walltime, ntasks, *args, **kargs)
 
-        self.remote_singularity_img_path = "/home/cybergis/SUMMA_IMAGE/rhessys_20210201.sif"
+        self.remote_singularity_img_path = "/home/cybergis/SUMMA_IMAGE/rhessys72.simg"
         self.module_config = "module list && module load singularity/3.5 && module list"
         self.partition = "compute"  # compute, shared
 
