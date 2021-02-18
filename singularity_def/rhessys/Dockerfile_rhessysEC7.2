@@ -19,6 +19,8 @@ RUN git clone https://github.com/laurencelin/RHESSysEastCoast.git \
 RUN cd RHESSysEastCoast \
     && cp rhessysEC.7.2 /code
 
+RUN ln -s /code/RHESSysEastCoast/rhessysEC.7.2 /usr/bin/rhessysEC.7.2
+
 ###################################
 ## create docker user
 RUN useradd -ms /bin/bash docker
