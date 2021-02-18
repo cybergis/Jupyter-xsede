@@ -1,0 +1,57 @@
+# Created by Choi, Feb 2021
+# cybergisx/rhessysv7.2:0.1
+FROM ubuntu:xenial
+
+# install only the packages that are needed
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    software-properties-common python-software-properties \
+    ca-certificates \
+    git \
+    make \
+    liblapack-dev \
+    wget \
+    vim
+
+# add code directory and compile RHESSys
+WORKDIR /code
+RUN git clone https://github.com/laurencelin/RHESSysEastCoast.git \
+    && cd RHESSysEastCoast \
+    && make
+RUN cd RHESSysEastCoast \
+    && cp rhessysEC.7.2 /code
+
+RUN ln -s /code/RHESSysEastCoast/rhessysEC.7.2 /usr/bin/rhessysEC.7.2
+
+###################################
+## create docker user
+RUN useradd -ms /bin/bash docker
+RUN usermod -aG sudo docker
+RUN chmod -R 777 /home/docker/
+
+###################################
+# Python 3.7 (Install py37 conda to avoid mpi4py issue, see below)
+RUN wget https://repo.continuum.io/miniconda/Miniconda3-py37_4.8.3-Linux-x86_64.sh \
+    && bash Miniconda3-py37_4.8.3-Linux-x86_64.sh -b -p /opt/miniconda3 \
+    && rm Miniconda3-py37_4.8.3-Linux-x86_64.sh \
+    && chown -R docker:docker /opt/miniconda3
+    
+#Set environment variables
+ENV PATH="/opt/miniconda3/bin:${PATH}"
+
+# Install pyrhessys env
+
+RUN /opt/miniconda3/bin/python -m pip install --quiet git+https://github.com/DavidChoi76/pyrhessys.git
+
+RUN /opt/miniconda3/bin/conda install -c conda-forge mpi4py=3.0.3=py37h0c5ec45_2
+RUN /opt/miniconda3/bin/conda install seaborn
+
+RUN mkdir -p /workspace && chmod -R 777 /workspace
+RUN chmod -R 777 /home/docker
+RUN chmod -R 777 /opt/miniconda3
+
+RUN mkdir -p /home/jovyan/work/workspace
+RUN chmod -R 777 /home
+
+USER docker
+WORKDIR /home/docker

@@ -1,0 +1,6 @@
+# singularity build rhessys_20210201.sif using rhessysEC7.2.def 
+# To fix 'No Space Left On Device" error 
+# export MYTMP=/var/tmp && rm -rvf $MYTMP/* && export SINGULARITY_LOCALCACHEDIR=$MYTMP && export SINGULARITY_CACHEDIR=$MYTMP && export SINGULARITY_TMPDIR=$MYTMP
+
+Bootstrap: docker
+From: cybergisx/rhessysv7.2:0.1
