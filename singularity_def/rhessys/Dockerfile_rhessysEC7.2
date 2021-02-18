@@ -8,17 +8,16 @@ RUN apt-get update && \
     git \
     make \
     liblapack-dev \
+    wget \
     vim
 
-# set environment variables for docker build
-ENV F_MASTER /code
-ENV FC gcc
-ENV FC_EXE gcc
-ENV INCLUDES -I/usr/include
-ENV LIBRARIES '-L/usr/lib -lnetcdff -llapack -lblas'
-
-RUN git clone https://github.com/NCAR/summa.git /tmp/summa \
-    && cd /tmp/summa \
+# add code directory and compile RHESSys
+WORKDIR /code
+RUN git clone https://github.com/laurencelin/RHESSysEastCoast.git \
+    && cd RHESSysEastCoast \
+    && make
+RUN cd RHESSysEastCoast \
+    && cp rhessysEC.7.2 /code
 
 ###################################
 ## create docker user
@@ -36,11 +35,12 @@ RUN wget https://repo.continuum.io/miniconda/Miniconda3-py37_4.8.3-Linux-x86_64.
 #Set environment variables
 ENV PATH="/opt/miniconda3/bin:${PATH}"
 
-# Install SUMMA conda env
+# Install pyrhessys env
 
 RUN /opt/miniconda3/bin/python -m pip install --quiet git+https://github.com/DavidChoi76/pyrhessys.git
 
 RUN /opt/miniconda3/bin/conda install -c conda-forge mpi4py=3.0.3=py37h0c5ec45_2
+RUN /opt/miniconda3/bin/conda install seaborn
 
 RUN mkdir -p /workspace && chmod -R 777 /workspace
 RUN chmod -R 777 /home/docker
@@ -48,9 +48,6 @@ RUN chmod -R 777 /opt/miniconda3
 
 RUN mkdir -p /home/jovyan/work/workspace
 RUN chmod -R 777 /home
-
-# create a symbolic link to summa.exe being consistent with old summa singularity images
-RUN mkdir -p /code/bin && ln -s /usr/bin/summa.exe /code/bin/summa.exe
 
 USER docker
 WORKDIR /home/docker

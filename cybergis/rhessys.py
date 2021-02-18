@@ -30,7 +30,6 @@ cp slurm-$$SLURM_JOB_ID.out $remote_model_folder_path/model/output
 echo done
 """
 
-
 class RHESSysKeelingSBatchScript(KeelingSBatchScript):
     file_name = "rhessys.sbatch"
     SCRIPT_TEMPLATE = RHESSys_SBATCH_SCRIPT_TEMPLATE
@@ -38,9 +37,8 @@ class RHESSysKeelingSBatchScript(KeelingSBatchScript):
     def __init__(self, walltime, ntasks,
                  *args, **kargs):
         super().__init__(walltime, ntasks, *args, **kargs)
-        self.remote_singularity_img_path = "/home/yc5ef/rhessys_20210201.sif"
+        self.remote_singularity_img_path = "/data/keeling/a/cigi-gisolve/simages/rhessys_20210201.sif"
         self.module_config = "module list"
-
 
 class RHESSysCometSBatchScript(CometSBatchScript):
     file_name = "rhessys.sbatch"
@@ -49,7 +47,7 @@ class RHESSysCometSBatchScript(CometSBatchScript):
     def __init__(self, walltime, ntasks, *args, **kargs):
         super().__init__(walltime, ntasks, *args, **kargs)
 
-        self.remote_singularity_img_path = "/home/yc5ef/rhessys_20210201.sif"
+        self.remote_singularity_img_path = "/home/cybergis/SUMMA_IMAGE/rhessys_20210201.sif"
         self.module_config = "module list && module load singularity/3.5 && module list"
         self.partition = "compute"  # compute, shared
 
@@ -114,8 +112,7 @@ if rank == 0 and (not ensemble_flag):
 executable = "/code/rhessysEC.7.2"
 print(instance_path)
 model_dir = os.path.join(new_instance_path, "model")
-#if len(config_pair_list) == 0:
-#    config_pair_list = [("_test", {})]
+
 for config_pair in config_pair_list:
     try:
         name = config_pair[0]
@@ -190,26 +187,8 @@ class RHESSysKeelingJob(KeelingJob):
             **kwargs
         )
 
-        # Directory: "/Workspace/Job/Model/"
-        #if file_manager_rel_path is None:
-        #    self.file_manager_rel_path = kwargs['file_manager_rel_path']
-        #else:
-        #    self.file_manager_rel_path = file_manager_rel_path
-
-        #self.model_file_manager_name = os.path.basename(
-        #    self.file_manager_rel_path
-        #)
-        #self.local_model_source_file_manager_path = os.path.join(
-        #    self.local_model_source_folder_path, self.file_manager_rel_path
-        #)
-
     def prepare(self):
         # Directory: "/Workspace/Job/Model/"
-
-        #self.local_model_file_manager_path = os.path.join(
-        #    self.local_model_folder_path, self.file_manager_rel_path
-        #)
-
         self.singularity_workspace_path = "/workspace"
         self.singularity_job_folder_path = self.singularity_workspace_path
         self.singularity_model_folder_path = os.path.join(
@@ -229,15 +208,6 @@ class RHESSysKeelingJob(KeelingJob):
             _additional_parameter_dict=self.to_dict()
         )
 
-        # replace local path with remote path
-        # summa file_manager:
-        # file manager uses local_model_source_folder_path
-        # change to singularity_model_folder_path
-        #self.replace_text_in_file(
-        #    self.local_model_file_manager_path,
-        #    [(self.local_model_source_folder_path, self.singularity_model_folder_path)],
-        #)
-
     def download(self):
         self.connection.download(
             os.path.join(self.remote_model_folder_path, "model/output"),
@@ -247,7 +217,6 @@ class RHESSysKeelingJob(KeelingJob):
         self.connection.download(
             self.remote_slurm_out_file_path, self.local_job_folder_path
         )
-
 
 class RHESSysCometJob(RHESSysKeelingJob):
     sbatch_script_class = RHESSysCometSBatchScript
