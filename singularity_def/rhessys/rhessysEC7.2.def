@@ -3,4 +3,4 @@
 # export MYTMP=/var/tmp && rm -rvf $MYTMP/* && export SINGULARITY_LOCALCACHEDIR=$MYTMP && export SINGULARITY_CACHEDIR=$MYTMP && export SINGULARITY_TMPDIR=$MYTMP
 
 Bootstrap: docker
-From: davidchoi76/rhessys:v7.2
+From: cybergisx/rhessysv7.2:0.1
