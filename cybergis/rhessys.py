@@ -170,23 +170,6 @@ class RHESSysKeelingJob(KeelingJob):
     job_name = "RHESSys"
     sbatch_script_class = RHESSysKeelingSBatchScript
 
-    def __init__(
-            self,
-            local_workspace_path,
-            local_model_source_folder_path,
-            connection,
-            sbatch_script,
-            **kwargs
-    ):
-
-        super().__init__(
-            local_workspace_path,
-            local_model_source_folder_path,
-            connection,
-            sbatch_script,
-            **kwargs
-        )
-
     def prepare(self):
         # Directory: "/Workspace/Job/Model/"
         self.singularity_workspace_path = "/workspace"
