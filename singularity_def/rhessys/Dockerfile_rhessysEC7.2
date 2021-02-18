@@ -1,3 +1,5 @@
+# Created by Choi, Feb 2021
+# cybergisx/rhessysv7.2:0.1
 FROM ubuntu:xenial
 
 # install only the packages that are needed
@@ -18,6 +20,8 @@ RUN git clone https://github.com/laurencelin/RHESSysEastCoast.git \
     && make
 RUN cd RHESSysEastCoast \
     && cp rhessysEC.7.2 /code
+
+RUN ln -s /code/RHESSysEastCoast/rhessysEC.7.2 /usr/bin/rhessysEC.7.2
 
 ###################################
 ## create docker user
