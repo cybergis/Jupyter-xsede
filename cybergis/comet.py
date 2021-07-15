@@ -20,10 +20,11 @@ class CometSBatchScript(SBatchScript):
         self.remote_workspace_folder_path = "/expanse/lustre/scratch/cybergis/temp_project"
         if self.partition is None:
             self.partition = "shared"  # compute, shared
-        # adjust partition and mtasks
+        # Force to use shared partition with <128 cpus on Expanse
         if self.ntasks > 127:
             self.ntasks = 127
         self.nodes = 1
+        self.partition = "shared"
 
 
 class CometJob(SlurmJob):
