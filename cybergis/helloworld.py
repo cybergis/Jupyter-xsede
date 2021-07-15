@@ -94,8 +94,8 @@ def submit(workspace, mode_source_folder_path, nodes, wtime,
     SBatchScriptClass = HelloWorldKeelingSBatchScript
     JobClass = HelloWorldKeelingJob
 
-    if hpc == "comet":
-        server_url = "comet.sdsc.edu"
+    if hpc == "comet" or hpc == "expanse":
+        server_url = "login.expanse.sdsc.edu"
         user_name = "cybergis"
         SBatchScriptClass = HelloWorldCometSBatchScript
         JobClass = HelloWorldCometJob

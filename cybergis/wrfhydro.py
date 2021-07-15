@@ -251,8 +251,8 @@ def WRFHydroSubmission(workspace, mode_source_folder_path, nodes, wtime,
     WRFHydroSBatchScriptClass = WRFHydroKeelingSBatchScript
     WRFHydroJobClass = WRFHydroKeelingJob
 
-    if hpc == "comet":
-        server_url = "comet.sdsc.edu"
+    if hpc == "comet" or hpc == "expanse":
+        server_url = "login.expanse.sdsc.edu"
         user_name = "cybergis"
         WRFHydroSBatchScriptClass = WRFHydroCometSBatchScript
         WRFHydroJobClass = WRFHydroCometJob

@@ -14,8 +14,11 @@ SUMMA_SBATCH_SCRIPT_TEMPLATE = \
 
 #SBATCH --job-name=$job_name
 #SBATCH --ntasks=$ntasks
+#SBATCH --nodes=$nodes
 #SBATCH --time=$walltime
 #SBATCH --partition=$partition
+#SBATCH --account=TG-EAR190007
+#SBATCH --mem=24GB
 
 ## allocated hostnames
 echo $$SLURM_JOB_NODELIST
@@ -262,8 +265,8 @@ def SummaSubmission(workspace, mode_source_folder_path, nodes, wtime,
     SummaSBatchScriptClass = SummaKeelingSBatchScript
     SummaJobClass = SummaKeelingJob
 
-    if hpc == "comet":
-        server_url = "comet.sdsc.edu"
+    if hpc == "comet" or hpc == "expanse":
+        server_url = "login.expanse.sdsc.edu"
         user_name = "cybergis"
         SummaSBatchScriptClass = SummaCometSBatchScript
         SummaJobClass = SummaCometJob

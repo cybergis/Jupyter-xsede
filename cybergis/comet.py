@@ -13,11 +13,17 @@ class CometSBatchScript(SBatchScript):
 
     def __init__(self, walltime, ntasks, *args, **kargs):
         super().__init__(walltime, ntasks, *args, **kargs)
-        # Lustre Comet scratch filesystem: /oasis/scratch/comet/$USER/temp_project
-        # see: https://www.sdsc.edu/support/user_guides/comet.html
-        self.remote_workspace_folder_path = "/oasis/scratch/comet/cybergis/temp_project"
+        # # Lustre Comet scratch filesystem: /oasis/scratch/comet/$USER/temp_project
+        # # see: https://www.sdsc.edu/support/user_guides/comet.html
+        # self.remote_workspace_folder_path = "/oasis/scratch/comet/cybergis/temp_project"
+        # expanse: https://www.sdsc.edu/support/user_guides/expanse.html
+        self.remote_workspace_folder_path = "/expanse/lustre/scratch/cybergis/temp_project"
         if self.partition is None:
-            self.partition = "compute"  # compute, shared
+            self.partition = "shared"  # compute, shared
+        # adjust partition and mtasks
+        if self.ntasks > 127:
+            self.ntasks = 127
+        self.nodes = 1
 
 
 class CometJob(SlurmJob):
