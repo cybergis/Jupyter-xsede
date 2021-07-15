@@ -9,7 +9,7 @@ from .connection import SSHConnection
 
 logger = get_logger()
 
-SUMMA_SBATCH_SCRIPT_TEMPLATE = \
+SUMMA_SBATCH_SCRIPT_TEMPLATE_comet = \
 """#!/bin/bash
 
 #SBATCH --job-name=$job_name
@@ -32,10 +32,30 @@ srun --mpi=pmi2 singularity exec -B $remote_job_folder_path:/workspace \
 cp slurm-$$SLURM_JOB_ID.out $remote_model_folder_path/output
 """
 
+SUMMA_SBATCH_SCRIPT_TEMPLATE_keeling = \
+"""#!/bin/bash
+
+#SBATCH --job-name=$job_name
+#SBATCH --ntasks=$ntasks
+#SBATCH --time=$walltime
+#SBATCH --partition=$partition
+
+## allocated hostnames
+echo $$SLURM_JOB_NODELIST
+
+$module_config
+
+srun --mpi=pmi2 singularity exec -B $remote_job_folder_path:/workspace \
+   $remote_singularity_img_path \
+   python /workspace/runSumma.py
+
+cp slurm-$$SLURM_JOB_ID.out $remote_model_folder_path/output
+"""
+
 
 class SummaKeelingSBatchScript(KeelingSBatchScript):
     file_name = "summa.sbatch"
-    SCRIPT_TEMPLATE = SUMMA_SBATCH_SCRIPT_TEMPLATE
+    SCRIPT_TEMPLATE = SUMMA_SBATCH_SCRIPT_TEMPLATE_keeling
 
     def __init__(self, walltime, ntasks,
                  *args, **kargs):
@@ -46,7 +66,7 @@ class SummaKeelingSBatchScript(KeelingSBatchScript):
 
 class SummaCometSBatchScript(CometSBatchScript):
     file_name = "summa.sbatch"
-    SCRIPT_TEMPLATE = SUMMA_SBATCH_SCRIPT_TEMPLATE
+    SCRIPT_TEMPLATE = SUMMA_SBATCH_SCRIPT_TEMPLATE_comet
 
     def __init__(self, walltime, ntasks, *args, **kargs):
         super().__init__(walltime, ntasks, *args, **kargs)
