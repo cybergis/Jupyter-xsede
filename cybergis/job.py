@@ -260,6 +260,29 @@ class SlurmJob(UtilsMixin, BaseJob):
     #     except Exception as ex:
     #         return "ERROR"
 
+    def job_status_sacct(self, remote_id, connection):
+        # https://ubccr.freshdesk.com/support/solutions/articles/5000686909-how-to-retrieve-job-history-and-accounting
+        cmd = 'sacct -j {} --format=state'.format(remote_id)
+        try:
+            out = connection.run_command(cmd,
+                                         line_delimiter=None,
+                                         raise_on_error=True)
+            # PENDING RUNNING COMPLETED
+
+            #State out[0]
+            #---------- out[1]
+            #COMPLETED out[2].split()[0]
+            #COMPLETED
+            #COMPLETED
+
+            status = out[2].split()[0]
+            if status == "COMPLETED":
+                status = "C"
+            return status
+        except Exception as ex:
+            return "ERROR"
+
+
     def job_status_slurm(self, remote_id, connection):
 
         cmd = 'squeue --job {}'.format(remote_id)

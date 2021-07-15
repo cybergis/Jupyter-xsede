@@ -131,7 +131,7 @@ class BaseSupervisorToHPC(object):
         return return_dict
 
     def job_status(self, remote_id):
-        return SlurmJob.job_status_pbs(None, remote_id, self.connection)
+        return SlurmJob.job_status_sacct(None, remote_id, self.connection)
 
     def download(
             self,
