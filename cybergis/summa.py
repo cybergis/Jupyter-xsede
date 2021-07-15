@@ -250,13 +250,23 @@ for v in constant_vars:
     i = i + int(len(sorted_list)/7)
 
 #### KGE ##########
+print("#################### KGE #########################")
 import os
 from natsort import natsorted
 import xarray as xr
 import pandas as pd
 import numpy as np
 
-initialization_days = 10
+initialization_days = 365
+regress_folder_path = os.path.join(output_path, "regress_data")
+try:
+    regress_param_path = os.path.join(regress_folder_path, "regress_param.json")
+    with open(regress_param_path) as f:
+        regress_param = json.load(f)
+        initialization_days = int(regress_param["initialization_days"])
+except Exception as ex:
+    pass
+print("#################### initialization_days: {}".format(initialization_days))
 
 # Set forcings and create dictionaries, reordered forcings and output variables to match paper 
 constant_vars= ['pptrate','airtemp','spechum','SWRadAtm','LWRadAtm','windspd','airpres'] 
@@ -343,7 +353,7 @@ for i,k in enumerate(choices):
         error_data[s].loc[:,:,'truth','raw']  = truth[s].sum(dim='time') #this is raw data, not error      
         
     #save file
-    regress_folder_path = os.path.join(output_path, "regress_data")
+    
     if not os.path.exists(regress_folder_path):
         os.makedirs(regress_folder_path)
     error_data.to_netcdf(os.path.join(regress_folder_path, 'error_data'+suffix[i]))
