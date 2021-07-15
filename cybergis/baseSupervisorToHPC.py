@@ -80,7 +80,7 @@ class BaseSupervisorToHPC(object):
                     user_name=self.username,
                     user_pw=self.user_pw,
                 )
-        elif self.machine.lower() == "comet" or self.machine.lower() == 'expanse"':
+        elif self.machine.lower() == "comet" or self.machine.lower() == "expanse":
             if self.username == "cybergis":
                 self.connection = SSHConnection(
                     "login.expanse.sdsc.edu",
