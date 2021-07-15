@@ -256,7 +256,7 @@ import xarray as xr
 import pandas as pd
 import numpy as np
 
-initialization_days = 365
+initialization_days = 10
 
 # Set forcings and create dictionaries, reordered forcings and output variables to match paper 
 constant_vars= ['pptrate','airtemp','spechum','SWRadAtm','LWRadAtm','windspd','airpres'] 
