@@ -29,6 +29,12 @@ srun --mpi=pmi2 singularity exec -B $remote_job_folder_path:/workspace \
    $remote_singularity_img_path \
    python /workspace/runSumma.py
 
+
+singularity exec -B $remote_job_folder_path:/workspace \
+    $remote_singularity_img_path \
+    bash -c "pip install natsort && python /workspace/camels.py"
+
+
 cp slurm-$$SLURM_JOB_ID.out $remote_model_folder_path/output
 """
 
