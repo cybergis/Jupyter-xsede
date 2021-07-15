@@ -154,7 +154,7 @@ for config_pair in config_pair_list:
         # run model
         ss.run('local', run_suffix=name)
         # print debug info
-        print(ss.stdout) 
+        #print(ss.stdout) 
         
     except Exception as ex:
         print("Error in ({}/{}) {}: {}".format(rank, size, name, str(config)))
