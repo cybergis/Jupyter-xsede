@@ -412,7 +412,7 @@ class SummaKeelingJob(KeelingJob):
         )
 
         # save user scripts
-        camels_user_scripts = CAMELS_USER_SCRIPT_TEMPlATE()
+        camels_user_scripts = CAMELSUserScript()
 
         camels_user_scripts.generate_script(local_folder_path=self.local_job_folder_path,
                                             _additional_parameter_dict=self.to_dict())
