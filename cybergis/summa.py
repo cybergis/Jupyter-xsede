@@ -29,11 +29,17 @@ srun --mpi=pmi2 singularity exec -B $remote_job_folder_path:/workspace \
    $remote_singularity_img_path \
    python /workspace/runSumma.py
 
-
-singularity exec -B $remote_job_folder_path:/workspace \
-    $remote_singularity_img_path \
-    bash -c "pip install natsort && python /workspace/camels.py"
-
+# if there is a "regress_data" folder in "output" folder, calculate KGE
+if [ -d "$remote_model_folder_path/output/regress_data" ] 
+then
+    echo "!!!!!!!  Merging and KGE !!!!!!!!!!!!!" 
+    singularity exec -B $remote_job_folder_path:/workspace \
+      $remote_singularity_img_path \
+      bash -c "pip install natsort && python /workspace/camels.py"
+    mv $remote_model_folder_path/output $remote_model_folder_path/output2
+    mkdir -p $remote_model_folder_path/output
+    mv $remote_model_folder_path/output2/regress_data $remote_model_folder_path/output/
+fi
 
 cp slurm-$$SLURM_JOB_ID.out $remote_model_folder_path/output
 """
@@ -336,8 +342,11 @@ for i,k in enumerate(choices):
     for s in comp_sim:
         error_data[s].loc[:,:,'truth','raw']  = truth[s].sum(dim='time') #this is raw data, not error      
         
-#save file
-    error_data.to_netcdf(os.path.join(output_path, 'error_data'+suffix[i]))
+    #save file
+    regress_folder_path = os.path.join(output_path, "regress_data")
+    if not os.path.exists(regress_folder_path):
+        os.makedirs(regress_folder_path)
+    error_data.to_netcdf(os.path.join(regress_folder_path, 'error_data'+suffix[i]))
 
 """
 
