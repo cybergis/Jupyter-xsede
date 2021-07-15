@@ -216,7 +216,7 @@ sorted_list = sort_nc_files(truth_path)
 all_ds = [xr.open_dataset(f) for f in sorted_list]
 all_name = [n.split("_")[-2] for n in sorted_list]
 all_merged = xr.concat(all_ds, pd.Index(all_name, name="decision"))
-merged_truth_path = os.path.join(output_path, "NLDAStruth_configs_latin.nc")
+merged_truth_path = os.path.join(output_path, "merged_day/NLDAStruth_configs_latin.nc")
 all_merged.to_netcdf(merged_truth_path)
 print(merged_truth_path)
 
@@ -232,7 +232,7 @@ for f in sorted_list:
 constant_vars= ['airpres','airtemp','LWRadAtm','pptrate','spechum','SWRadAtm','windspd']
 for v in constant_vars:
     all_merged = xr.concat(all_ds[i:i+int(len(sorted_list)/7)], pd.Index(ens_decisions[i:i+int(len(sorted_list)/7)], name="decision"))
-    merged_constant_path = os.path.join(output_path, 'NLDASconstant_' + v +'_configs_latin.nc')
+    merged_constant_path = os.path.join(output_path, 'merged_day/NLDASconstant_' + v +'_configs_latin.nc')
     all_merged.to_netcdf(merged_constant_path)
     print(merged_constant_path)
     i = i + int(len(sorted_list)/7)
@@ -277,7 +277,7 @@ suffix = ['_configs_latin.nc','_latin.nc','_configs.nc','_hru.nc']
 
 for i,k in enumerate(choices):
     if k==0: continue
-    sim_truth = xr.open_dataset(os.path.join(output_path, 'NLDAStruth'+suffix[i]))
+    sim_truth = xr.open_dataset(os.path.join(output_path, 'merged_day/NLDAStruth'+suffix[i]))
     
 # Get decision names off the files
     if i<3: decision_set = np.array(sim_truth['decision']) 
@@ -299,7 +299,7 @@ for i,k in enumerate(choices):
     for v in constant_vars:
         truth = truth0_0
         truth = truth.isel(time = slice(initialization_days*24,None)) #don't include first year, 5 years
-        sim = xr.open_dataset(os.path.join(output_path, 'NLDASconstant_' + v + suffix[i]))
+        sim = xr.open_dataset(os.path.join(output_path, 'merged_day/NLDASconstant_' + v + suffix[i]))
         sim = sim.drop_vars('hruId').load()
         sim = sim.isel(time = slice(initialization_days*24,None)) #don't include first year, 5 years
         r = sim.mean(dim='time') #to set up xarray since xr.dot not supported on dataset and have to do loop
@@ -331,7 +331,7 @@ for i,k in enumerate(choices):
         error_data[s].loc[:,:,'truth','raw']  = truth[s].sum(dim='time') #this is raw data, not error      
         
 #save file
-    error_data.to_netcdf(os.path.join(output_path, "merged_day", 'error_data'+suffix[i]))
+    error_data.to_netcdf(os.path.join(output_path, 'error_data'+suffix[i]))
 
 """
 
