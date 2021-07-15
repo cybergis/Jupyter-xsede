@@ -1,4 +1,4 @@
-from .base import SBatchScript
+from .base import SBatchScript, BaseJob
 from .connection import SSHConnection
 from .job import SlurmJob
 from .keeling import KeelingSBatchScript, KeelingJob
@@ -131,7 +131,7 @@ class BaseSupervisorToHPC(object):
         return return_dict
 
     def job_status(self, remote_id):
-        return SlurmJob.job_status_sacct(None, remote_id, self.connection)
+        return SlurmJob.job_status_sacct(BaseJob(), remote_id, self.connection)
 
     def download(
             self,
