@@ -276,11 +276,28 @@ class SlurmJob(UtilsMixin, BaseJob):
             #COMPLETED
 
             status = out[2].split()[0]
+            self.logger.warning("Job {} status: {} ".format(remote_id, status))
             if status == "COMPLETED":
                 status = "C"
             return status
         except Exception as ex:
-            return "ERROR"
+            self.logger.error("Go Error when Checking Job {} status: {} ".format(remote_id, ex.message))
+            self.logger.error("Trying again... ")
+            time.sleep(10)
+            try:
+                out = connection.run_command(cmd,
+                                             line_delimiter=None,
+                                             raise_on_error=True)
+
+                status = out[2].split()[0]
+                self.logger.warning("Job {} status: {} ".format(remote_id, status))
+                if status == "COMPLETED":
+                    status = "C"
+
+                return status
+            except Exception as ex:
+                self.logger.error("Go Error Again when Checking Job {} status: {} ".format(remote_id, ex.message))
+                return "ERROR"
 
 
     def job_status_slurm(self, remote_id, connection):
@@ -296,6 +313,7 @@ class SlurmJob(UtilsMixin, BaseJob):
             #   ['3142135', 'node', 'singular', 'cigi-gis', 'R', '0:11', '1', 'keeling-b08']
             return out[1].split()[4]
         except Exception as ex:
+            self.logger.error("Job {} status error: {} ".format(remote_id, ex.message))
             return "ERROR"
 
     def job_status_pbs(self, remote_id, connection):
@@ -320,5 +338,5 @@ class SlurmJob(UtilsMixin, BaseJob):
 
             return out[2].split()[-2]
         except Exception as ex:
-            self.logger.warning("Job status error: ".format(ex.message))
+            self.logger.error("Job {} status error: {} ".format(remote_id, ex.message))
             return "ERROR"
