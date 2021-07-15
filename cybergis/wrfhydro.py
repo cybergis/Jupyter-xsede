@@ -9,7 +9,7 @@ from .connection import SSHConnection
 
 logger = get_logger()
 
-WRFHYDRO_SBATCH_SCRIPT_TEMPLATE = \
+WRFHYDRO_SBATCH_SCRIPT_TEMPLATE_keeling = \
 '''#!/bin/bash
 
 #SBATCH --job-name=$job_name
@@ -57,6 +57,56 @@ singularity exec -B $remote_job_folder_path:/workspace $remote_singularity_img_p
 '''
 
 
+WRFHYDRO_SBATCH_SCRIPT_TEMPLATE_expanse = \
+'''#!/bin/bash
+
+#SBATCH --job-name=$job_name
+#SBATCH --ntasks=$ntasks
+#SBATCH --nodes=$nodes
+#SBATCH --time=$walltime
+#SBATCH --partition=$partition
+#SBATCH --account=TG-EAR190007
+#SBATCH --mem=24GB
+
+## allocated hostnames
+echo $$SLURM_JOB_NODELIST
+
+$module_config
+
+## compile mode from source
+singularity exec -B $remote_job_folder_path:/workspace $remote_singularity_img_path python /workspace/compile_wrfhydro.py
+
+## change wrf_hydro.exe permission
+chmod +x $remote_model_folder_path/wrf_hydro.exe
+
+## count number of folders job_xxxx
+## $$ is to escape single dollar sign, which are used as bash variables later
+## See: https://docs.python.org/2.4/lib/node109.html
+job_num=$$(find $remote_model_folder_path/job_* -type d | wc -l)
+
+## see: https://docs.nersc.gov/jobs/examples/#multiple-parallel-jobs-sequentially
+## loop through 0 -- job_num-1
+for (( job_index=0; job_index<$$job_num; job_index++ ))
+do
+  echo $$job_index
+
+  ## parallel run
+  srun --mpi=pmi2 singularity exec -B $remote_job_folder_path:/workspace $remote_singularity_img_path python /workspace/run_mpi_call_singularity.py $$job_index
+
+  ## sequential run for testing
+  ## singularity exec -B $remote_job_folder_path:/workspace $remote_singularity_img_path python /workspace/run_mpi_call_singularity.py $$job_index
+
+  if [ $$job_index -lt $$((job_num-1)) ]
+    then
+       echo "sleep for 5s"
+       sleep 5
+  fi
+done
+
+singularity exec -B $remote_job_folder_path:/workspace $remote_singularity_img_path python /workspace/copy_outputs.py
+
+'''
+
 class WRFHydroKeelingSBatchScript(KeelingSBatchScript):
     '''
     Current implementation follows the "Host MPI" or "Hybrid" model
@@ -87,7 +137,7 @@ class WRFHydroKeelingSBatchScript(KeelingSBatchScript):
 
     file_name = "wrfhydro.sbatch"
 
-    SCRIPT_TEMPLATE = WRFHYDRO_SBATCH_SCRIPT_TEMPLATE
+    SCRIPT_TEMPLATE = WRFHYDRO_SBATCH_SCRIPT_TEMPLATE_keeling
 
     def __init__(self, walltime, ntasks, *args, **kargs):
         super().__init__(walltime, ntasks, *args, **kargs)
@@ -230,7 +280,7 @@ class WRFHydroKeelingJob(KeelingJob):
 
 class WRFHydroCometSBatchScript(CometSBatchScript):
     file_name = "wrfhydro.sbatch"
-    SCRIPT_TEMPLATE = WRFHYDRO_SBATCH_SCRIPT_TEMPLATE
+    SCRIPT_TEMPLATE = WRFHYDRO_SBATCH_SCRIPT_TEMPLATE_expanse
 
     def __init__(self, walltime, ntasks, *args, **kargs):
         super().__init__(walltime, ntasks, *args, **kargs)

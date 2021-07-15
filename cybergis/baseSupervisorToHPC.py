@@ -99,7 +99,7 @@ class BaseSupervisorToHPC(object):
         _SBatchScriptClass = self.__class__._KeelingSBatchScriptClass
         _JobClass = self.__class__._KeelingJobClass
 
-        if self.machine == "comet":
+        if self.machine == "comet" or self.machine == "expanse":
             _SBatchScriptClass = self.__class__._CometSBatchScriptClass
             _JobClass = self.__class__._CometJobClass
 

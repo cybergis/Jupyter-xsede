@@ -11,11 +11,14 @@ logger = get_logger()
 
 class CometSBatchScript(SBatchScript):
 
+    # change to point to Expanse on 07/15/2021
+
     def __init__(self, walltime, ntasks, *args, **kargs):
         super().__init__(walltime, ntasks, *args, **kargs)
         # # Lustre Comet scratch filesystem: /oasis/scratch/comet/$USER/temp_project
         # # see: https://www.sdsc.edu/support/user_guides/comet.html
         # self.remote_workspace_folder_path = "/oasis/scratch/comet/cybergis/temp_project"
+
         # expanse: https://www.sdsc.edu/support/user_guides/expanse.html
         self.remote_workspace_folder_path = "/expanse/lustre/scratch/cybergis/temp_project"
         if self.partition is None:
