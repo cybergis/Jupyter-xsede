@@ -52,8 +52,8 @@ class SummaCometSBatchScript(CometSBatchScript):
         super().__init__(walltime, ntasks, *args, **kargs)
 
         self.remote_singularity_img_path = "/home/cybergis/SUMMA_IMAGE/summa3_xenial.simg"
-        self.module_config = "module list && module load singularity/3.5 && module list"
-        self.partition = "compute"  # compute, shared
+        self.module_config = "module list && module load singularitypro/3.5 && module list"
+        self.partition = "shared"  # compute, shared
 
 
 SUMMA_USER_SCRIPT_TEMPLATE = \
