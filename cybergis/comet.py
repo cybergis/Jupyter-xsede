@@ -31,6 +31,7 @@ class CometSBatchScript(SBatchScript):
             self.ntasks = 128 * 2
         if self.ntasks < 128:
             self.partition = "shared"
+            self.nodes = 1
         else:
             nodesN = math.ceil(self.ntasks/128)
             self.nodes = nodesN
