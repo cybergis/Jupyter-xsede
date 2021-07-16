@@ -32,8 +32,8 @@ class BaseSupervisorToHPC(object):
             for k, v in parameters.items():
                 if v == "undefined":
                     parameters[k] = None
-            self.logger.error("*" * 200)
-            self.logger.error("parameters: {}".format(parameters))
+            # self.logger.error("*" * 200)
+            # self.logger.error("parameters: {}".format(parameters))
         except:
             pass
         try:
