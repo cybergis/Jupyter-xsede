@@ -282,15 +282,15 @@ class SlurmJob(UtilsMixin, BaseJob):
             if "COMPLETED" in status:
                 status = "C"
             elif "CANCELLED" in status:
-                status = "Error"
+                status = "ERROR"
             elif "FAILED" in status:
-                status = "Error"
+                status = "ERROR"
             elif "OUT_OF_MEMORY" in status:
-                status = "Error"
+                status = "ERROR"
             elif "TIMEOUT" in status:
-                status = "Error"
+                status = "ERROR"
             elif "REVOKED" in status:
-                status = "Error"
+                status = "ERROR"
             return status
 
         try:
