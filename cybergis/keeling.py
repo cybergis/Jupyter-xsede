@@ -11,6 +11,8 @@ class KeelingSBatchScript(SBatchScript):
         self.remote_workspace_folder_path = "/data/cigi/scratch/cigi-gisolve"
         if self.partition is None:
             self.partition = "node"  # node or sesempi
+        if ntasks > 20:
+            self.partition = "sesempi"
 
 
 class KeelingJob(SlurmJob):

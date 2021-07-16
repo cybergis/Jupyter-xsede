@@ -49,7 +49,6 @@ class RHESSysCometSBatchScript(CometSBatchScript):
 
         self.remote_singularity_img_path = "/home/cybergis/SUMMA_IMAGE/rhessys72.simg"
         self.module_config = "module list && module load singularitypro/3.5 && module list"
-        self.partition = "shared"  # compute, shared
 
 
 RHESSys_USER_SCRIPT_TEMPLATE = \

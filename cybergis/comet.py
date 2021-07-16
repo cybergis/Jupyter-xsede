@@ -1,6 +1,7 @@
 import os
 import datetime
 from string import Template
+import math
 
 from .base import SBatchScript
 from .job import SlurmJob
@@ -23,11 +24,18 @@ class CometSBatchScript(SBatchScript):
         self.remote_workspace_folder_path = "/expanse/lustre/scratch/cybergis/temp_project"
         if self.partition is None:
             self.partition = "shared"  # compute, shared
-        # Force to use shared partition with <128 cpus on Expanse
-        if self.ntasks > 127:
-            self.ntasks = 127
-        self.nodes = 1
-        self.partition = "shared"
+        # Expanse has 128 cpu/node
+        if self.ntasks < 1:
+            self.ntasks = 1
+        if self.ntasks > 128 * 5:
+            self.ntasks = 128 * 5
+        if self.ntasks < 128:
+            self.partition = "shared"
+        else:
+            nodesN = math.ceil(self.ntasks/128)
+            self.nodes = nodesN
+            self.ntasks = nodesN * 128
+            self.partition = "compute"
 
 
 class CometJob(SlurmJob):
