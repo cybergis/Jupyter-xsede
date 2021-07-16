@@ -281,7 +281,7 @@ class SlurmJob(UtilsMixin, BaseJob):
             self.logger.warning("Job {} status: {} ".format(remote_id, status))
             if "COMPLETED" in status:
                 status = "C"
-            elif "COMPLETED" in status:
+            elif "CANCELLED" in status:
                 status = "Error"
             elif "FAILED" in status:
                 status = "Error"
