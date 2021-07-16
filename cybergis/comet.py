@@ -27,8 +27,8 @@ class CometSBatchScript(SBatchScript):
         # Expanse has 128 cpu/node
         if self.ntasks < 1:
             self.ntasks = 1
-        if self.ntasks > 128 * 5:
-            self.ntasks = 128 * 5
+        if self.ntasks > 128 * 2:
+            self.ntasks = 128 * 2
         if self.ntasks < 128:
             self.partition = "shared"
         else:
