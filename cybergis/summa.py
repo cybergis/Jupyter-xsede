@@ -43,6 +43,7 @@ fi
 
 cp slurm-$$SLURM_JOB_ID.out $remote_model_folder_path/output
 rm -rf ./workers
+rm -rf $remote_model_folder_path/output2/merged_day
 """
 
 SUMMA_SBATCH_SCRIPT_TEMPLATE_keeling = \
@@ -76,6 +77,7 @@ fi
 
 cp slurm-$$SLURM_JOB_ID.out $remote_model_folder_path/output
 rm -rf ./workers
+rm -rf $remote_model_folder_path/output2/merged_day
 """
 
 
