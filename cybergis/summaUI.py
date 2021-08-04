@@ -150,13 +150,13 @@ class HPCUI(summa_base, printnumber):
                     self.keeling_con = SSHConnection("keeling.earth.illinois.edu",
                                                      user_name=self.username,
                                                      user_pw=self.user_pw)
-            elif self.machine.lower() == "comet":
+            elif self.machine.lower() == "comet" or self.machine.lower() == "expanse":
                 if self.username == "cigi-gisolve":
-                    self.keeling_con = SSHConnection("comet.sdsc.edu",
+                    self.keeling_con = SSHConnection("login.expanse.sdsc.edu",
                                                      user_name="cybergis",
                                                      key_path=self.private_key_path)
                 else:
-                    self.keeling_con = SSHConnection("comet.sdsc.edu",
+                    self.keeling_con = SSHConnection("login.expanse.sdsc.edu",
                                                      user_name=self.username,
                                                      user_pw=self.user_pw)
             # else:
@@ -386,13 +386,13 @@ class HPCSUMMA(HPCUI):
                     self.keeling_con = SSHConnection("keeling.earth.illinois.edu",
                                                      user_name=self.username,
                                                      user_pw=self.user_pw)
-            elif self.machine.lower() == "comet":
+            elif self.machine.lower() == "comet" or self.machine.lower() == "expanse":
                 if self.username == "cigi-gisolve":
-                    self.keeling_con = SSHConnection("comet.sdsc.edu",
+                    self.keeling_con = SSHConnection("login.expanse.sdsc.edu",
                                                      user_name="cybergis",
                                                      key_path=self.private_key_path)
                 else:
-                    self.keeling_con = SSHConnection("comet.sdsc.edu",
+                    self.keeling_con = SSHConnection("login.expanse.sdsc.edu",
                                                      user_name=self.username,
                                                      user_pw=self.user_pw)
 

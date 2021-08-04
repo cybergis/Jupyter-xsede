@@ -9,7 +9,44 @@ from .connection import SSHConnection
 
 logger = get_logger()
 
-SUMMA_SBATCH_SCRIPT_TEMPLATE = \
+SUMMA_SBATCH_SCRIPT_TEMPLATE_expanse = \
+"""#!/bin/bash
+
+#SBATCH --job-name=$job_name
+#SBATCH --ntasks=$ntasks
+#SBATCH --nodes=$nodes
+#SBATCH --time=$walltime
+#SBATCH --partition=$partition
+#SBATCH --account=TG-EAR190007
+#SBATCH --mem=24GB
+
+## allocated hostnames
+echo $$SLURM_JOB_NODELIST
+
+$module_config
+
+srun --mpi=pmi2 singularity exec -B $remote_job_folder_path:/workspace \
+   $remote_singularity_img_path \
+   python /workspace/runSumma.py
+
+# if there is a "regress_data" folder in "output" folder, calculate KGE
+if [ -d "$remote_model_folder_path/output/regress_data" ] 
+then
+    echo "!!!!!!!  Merging and KGE !!!!!!!!!!!!!" 
+    singularity exec -B $remote_job_folder_path:/workspace \
+      $remote_singularity_img_path \
+      bash -c "pip install natsort && python /workspace/camels.py"
+    mv $remote_model_folder_path/output $remote_model_folder_path/output2
+    mkdir -p $remote_model_folder_path/output
+    mv $remote_model_folder_path/output2/regress_data $remote_model_folder_path/output/
+fi
+
+cp slurm-$$SLURM_JOB_ID.out $remote_model_folder_path/output
+rm -rf ./workers
+rm -rf $remote_model_folder_path/output2/merged_day
+"""
+
+SUMMA_SBATCH_SCRIPT_TEMPLATE_keeling = \
 """#!/bin/bash
 
 #SBATCH --job-name=$job_name
@@ -26,13 +63,27 @@ srun --mpi=pmi2 singularity exec -B $remote_job_folder_path:/workspace \
    $remote_singularity_img_path \
    python /workspace/runSumma.py
 
+# if there is a "regress_data" folder in "output" folder, calculate KGE
+if [ -d "$remote_model_folder_path/output/regress_data" ] 
+then
+    echo "!!!!!!!  Merging and KGE !!!!!!!!!!!!!" 
+    singularity exec -B $remote_job_folder_path:/workspace \
+      $remote_singularity_img_path \
+      bash -c "pip install natsort && python /workspace/camels.py"
+    mv $remote_model_folder_path/output $remote_model_folder_path/output2
+    mkdir -p $remote_model_folder_path/output
+    mv $remote_model_folder_path/output2/regress_data $remote_model_folder_path/output/
+fi
+
 cp slurm-$$SLURM_JOB_ID.out $remote_model_folder_path/output
+rm -rf ./workers
+rm -rf $remote_model_folder_path/output2/merged_day
 """
 
 
 class SummaKeelingSBatchScript(KeelingSBatchScript):
     file_name = "summa.sbatch"
-    SCRIPT_TEMPLATE = SUMMA_SBATCH_SCRIPT_TEMPLATE
+    SCRIPT_TEMPLATE = SUMMA_SBATCH_SCRIPT_TEMPLATE_keeling
 
     def __init__(self, walltime, ntasks,
                  *args, **kargs):
@@ -43,14 +94,13 @@ class SummaKeelingSBatchScript(KeelingSBatchScript):
 
 class SummaCometSBatchScript(CometSBatchScript):
     file_name = "summa.sbatch"
-    SCRIPT_TEMPLATE = SUMMA_SBATCH_SCRIPT_TEMPLATE
+    SCRIPT_TEMPLATE = SUMMA_SBATCH_SCRIPT_TEMPLATE_expanse
 
     def __init__(self, walltime, ntasks, *args, **kargs):
         super().__init__(walltime, ntasks, *args, **kargs)
 
         self.remote_singularity_img_path = "/home/cybergis/SUMMA_IMAGE/summa3_xenial.simg"
-        self.module_config = "module list && module load singularity/3.5 && module list"
-        self.partition = "compute"  # compute, shared
+        self.module_config = "module list && module load singularitypro/3.5 && module list"
 
 
 SUMMA_USER_SCRIPT_TEMPLATE = \
@@ -151,7 +201,7 @@ for config_pair in config_pair_list:
         # run model
         ss.run('local', run_suffix=name)
         # print debug info
-        print(ss.stdout) 
+        #print(ss.stdout) 
         
     except Exception as ex:
         print("Error in ({}/{}) {}: {}".format(rank, size, name, str(config)))
@@ -166,6 +216,170 @@ print("Done in {}/{} ".format(rank, size))
 class SummaUserScript(BaseScript):
     SCRIPT_TEMPLATE = SUMMA_USER_SCRIPT_TEMPLATE
     file_name = "runSumma.py"
+
+CAMELS_USER_SCRIPT_TEMPlATE = \
+"""
+import os
+from natsort import natsorted
+import xarray as xr
+import pandas as pd
+
+job_folder_path = "$singularity_job_folder_path"
+instance = "$remote_model_folder_name"
+instance_path = os.path.join(job_folder_path, instance)
+
+# check output directory
+output_path = os.path.join(instance_path, "output")
+truth_path = os.path.join(output_path, "truth")
+
+def sort_nc_files(folder_path):
+    name_list = os.listdir(folder_path)
+    full_list1 = [os.path.join(folder_path, i) for i in name_list if i.endswith(".nc")]
+    sorted_list = natsorted(full_list1)
+    sorted_list = natsorted(sorted_list, key=lambda v: v.upper())
+    print("Number of NC files: {}".format(len(sorted_list)))
+    return sorted_list
+
+sorted_list = sort_nc_files(truth_path)
+all_ds = [xr.open_dataset(f) for f in sorted_list]
+all_name = [n.split("_")[-2] for n in sorted_list]
+all_merged = xr.concat(all_ds, pd.Index(all_name, name="decision"))
+merged_truth_path = os.path.join(output_path, "merged_day/NLDAStruth_configs_latin.nc")
+all_merged.to_netcdf(merged_truth_path)
+print(merged_truth_path)
+
+
+constant_path = os.path.join(output_path, "constant")
+sorted_list = sort_nc_files(constant_path)
+
+i = 0
+all_ds = [xr.open_dataset(f) for f in sorted_list]
+ens_decisions = []
+for f in sorted_list:
+    ens_decisions.append(f.split("_")[-2])
+constant_vars= ['airpres','airtemp','LWRadAtm','pptrate','spechum','SWRadAtm','windspd']
+for v in constant_vars:
+    all_merged = xr.concat(all_ds[i:i+int(len(sorted_list)/7)], pd.Index(ens_decisions[i:i+int(len(sorted_list)/7)], name="decision"))
+    merged_constant_path = os.path.join(output_path, 'merged_day/NLDASconstant_' + v +'_configs_latin.nc')
+    all_merged.to_netcdf(merged_constant_path)
+    print(merged_constant_path)
+    i = i + int(len(sorted_list)/7)
+
+#### KGE ##########
+print("#################### KGE #########################")
+import os
+from natsort import natsorted
+import xarray as xr
+import pandas as pd
+import numpy as np
+
+initialization_days = 365
+regress_folder_path = os.path.join(output_path, "regress_data")
+try:
+    regress_param_path = os.path.join(regress_folder_path, "regress_param.json")
+    with open(regress_param_path) as f:
+        regress_param = json.load(f)
+        initialization_days = int(regress_param["initialization_days"])
+except Exception as ex:
+    pass
+print("#################### initialization_days: {}".format(initialization_days))
+
+# Set forcings and create dictionaries, reordered forcings and output variables to match paper 
+constant_vars= ['pptrate','airtemp','spechum','SWRadAtm','LWRadAtm','windspd','airpres'] 
+allforcings = constant_vars+['truth']
+comp_sim=['scalarInfiltration','scalarSurfaceRunoff','scalarAquiferBaseflow','scalarSoilDrainage',
+          'scalarTotalSoilWat','scalarCanopyWat','scalarLatHeatTotal','scalarTotalET','scalarTotalRunoff',
+          'scalarSWE','scalarRainPlusMelt','scalarSnowSublimation','scalarSenHeatTotal','scalarNetRadiation']
+var_sim = np.concatenate([constant_vars, comp_sim])
+
+
+# definitions for KGE computation, correlation with a constant (e.g. all SWE is 0) will be 0 here, not NA
+def covariance(x,y,dims=None):
+    return xr.dot(x-x.mean(dims), y-y.mean(dims), dims=dims) / x.count(dims)
+
+def correlation(x,y,dims=None):#
+    return (covariance(x,y,dims)) / (x.std(dims) * y.std(dims))
+
+
+settings_folder = os.path.join(instance_path, "settings")
+attrib = xr.open_dataset(settings_folder+'/attributes.nc')
+the_hru = np.array(attrib['hruId'])
+
+# check output directory
+output_path = os.path.join(instance_path, "output")
+
+
+# Names for each set of problem complexities.
+choices = [1,0,0,0]
+suffix = ['_configs_latin.nc','_latin.nc','_configs.nc','_hru.nc']
+
+for i,k in enumerate(choices):
+    if k==0: continue
+    sim_truth = xr.open_dataset(os.path.join(output_path, 'merged_day/NLDAStruth'+suffix[i]))
+    
+# Get decision names off the files
+    if i<3: decision_set = np.array(sim_truth['decision']) 
+    if i==3: decision_set = np.array(['default'])
+
+# set up error calculations
+    summary = ['KGE','raw']
+    shape = ( len(decision_set),len(the_hru), len(allforcings),len(summary))
+    dims = ('decision','hru','var','summary')
+    coords = {'decision':decision_set,'hru': the_hru, 'var':allforcings, 'summary':summary}
+    error_data = xr.Dataset(coords=coords)
+    for s in comp_sim:
+        error_data[s] = xr.DataArray(data=np.full(shape, np.nan),
+                                     coords=coords, dims=dims,
+                                     name=s)
+        
+# calculate summaries
+    truth0_0 = sim_truth.drop_vars('hruId').load()
+    for v in constant_vars:
+        truth = truth0_0
+        truth = truth.isel(time = slice(initialization_days*24,None)) #don't include first year, 5 years
+        sim = xr.open_dataset(os.path.join(output_path, 'merged_day/NLDASconstant_' + v + suffix[i]))
+        sim = sim.drop_vars('hruId').load()
+        sim = sim.isel(time = slice(initialization_days*24,None)) #don't include first year, 5 years
+        r = sim.mean(dim='time') #to set up xarray since xr.dot not supported on dataset and have to do loop
+        for s in var_sim:         
+            r[s] = correlation(sim[s],truth[s],dims='time')
+        ds = 1 - np.sqrt( np.square(r-1) 
+        + np.square( sim.std(dim='time')/truth.std(dim='time') - 1) 
+        + np.square( (sim.mean(dim='time') - truth.mean(dim='time'))/truth.std(dim='time') ) )
+        for s in var_sim:   
+            #if constant and identical, want this as 1.0 -- correlation with a constant = 0 and std dev = 0
+            for h in the_hru:
+                if i<3: 
+                        for d in decision_set:  
+                            ss = sim[s].sel(hru=h,decision = d)
+                            tt = truth[s].sel(hru=h,decision = d)
+                            ds[s].loc[d,h] =ds[s].sel(hru=h,decision = d).where(np.allclose(ss,tt, atol = 1e-10)==False, other=1.0)
+                else:
+                    ss = sim[s].sel(hru=h)
+                    tt = truth[s].sel(hru=h)
+                    ds[s].loc[h] =ds[s].sel(hru=h).where(np.allclose(ss,tt, atol = 1e-10)==False, other=1.0)
+
+        ds = ds/(2.0-ds)
+        ds0 = ds.load()
+        for s in comp_sim:
+            error_data[s].loc[:,:,v,'KGE']  = ds0[s]
+            error_data[s].loc[:,:,v,'raw']  = sim[s].sum(dim='time') #this is raw data, not error
+        print(v)
+    for s in comp_sim:
+        error_data[s].loc[:,:,'truth','raw']  = truth[s].sum(dim='time') #this is raw data, not error      
+        
+    #save file
+    
+    if not os.path.exists(regress_folder_path):
+        os.makedirs(regress_folder_path)
+    error_data.to_netcdf(os.path.join(regress_folder_path, 'error_data'+suffix[i]))
+
+"""
+
+
+class CAMELSUserScript(BaseScript):
+    SCRIPT_TEMPLATE = CAMELS_USER_SCRIPT_TEMPlATE
+    file_name = "camels.py"
 
 
 class SummaKeelingJob(KeelingJob):
@@ -238,6 +452,12 @@ class SummaKeelingJob(KeelingJob):
             [(self.local_model_source_folder_path, self.singularity_model_folder_path)],
         )
 
+        # save user scripts for camels
+        camels_user_scripts = CAMELSUserScript()
+
+        camels_user_scripts.generate_script(local_folder_path=self.local_job_folder_path,
+                                            _additional_parameter_dict=self.to_dict())
+
     def download(self):
         self.connection.download(
             os.path.join(self.remote_model_folder_path, "output"),
@@ -262,8 +482,8 @@ def SummaSubmission(workspace, mode_source_folder_path, nodes, wtime,
     SummaSBatchScriptClass = SummaKeelingSBatchScript
     SummaJobClass = SummaKeelingJob
 
-    if hpc == "comet":
-        server_url = "comet.sdsc.edu"
+    if hpc == "comet" or hpc == "expanse":
+        server_url = "login.expanse.sdsc.edu"
         user_name = "cybergis"
         SummaSBatchScriptClass = SummaCometSBatchScript
         SummaJobClass = SummaCometJob

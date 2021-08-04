@@ -260,6 +260,52 @@ class SlurmJob(UtilsMixin, BaseJob):
     #     except Exception as ex:
     #         return "ERROR"
 
+    def job_status_sacct(self, remote_id, connection):
+        # https://ubccr.freshdesk.com/support/solutions/articles/5000686909-how-to-retrieve-job-history-and-accounting
+        cmd = 'sacct -j {} --format=state%-40'.format(remote_id)
+
+        def __check_status():
+            out = connection.run_command(cmd,
+                                         line_delimiter=None,
+                                         raise_on_error=True)
+            # PENDING RUNNING COMPLETED FAILED c+
+            # https://slurm.schedmd.com/sacct.html
+
+            # State out[0]
+            # ---------- out[1]
+            # COMPLETED out[2].split()[0]
+            # COMPLETED
+            # COMPLETED
+
+            status = out[2].split()[0]
+            self.logger.warning("Job {} status: {} ".format(remote_id, status))
+            if "COMPLETED" in status:
+                status = "C"
+            elif "CANCELLED" in status:
+                status = "ERROR"
+            elif "FAILED" in status:
+                status = "ERROR"
+            elif "OUT_OF_MEMORY" in status:
+                status = "ERROR"
+            elif "TIMEOUT" in status:
+                status = "ERROR"
+            elif "REVOKED" in status:
+                status = "ERROR"
+            return status
+
+        try:
+            return __check_status()
+        except Exception as ex:
+            self.logger.error("Got Error when Checking Job {} status: {} ".format(remote_id, ex.message))
+            self.logger.error("Trying again... ")
+            time.sleep(10)
+            try:
+                return __check_status()
+            except Exception as ex:
+                self.logger.error("Got Error Again when Checking Job {} status: {} ".format(remote_id, ex.message))
+                return "ERROR"
+
+
     def job_status_slurm(self, remote_id, connection):
 
         cmd = 'squeue --job {}'.format(remote_id)
@@ -273,6 +319,7 @@ class SlurmJob(UtilsMixin, BaseJob):
             #   ['3142135', 'node', 'singular', 'cigi-gis', 'R', '0:11', '1', 'keeling-b08']
             return out[1].split()[4]
         except Exception as ex:
+            self.logger.error("Job {} status error: {} ".format(remote_id, ex.message))
             return "ERROR"
 
     def job_status_pbs(self, remote_id, connection):
@@ -297,5 +344,5 @@ class SlurmJob(UtilsMixin, BaseJob):
 
             return out[2].split()[-2]
         except Exception as ex:
-            self.logger.warning("Job status error: ".format(ex.message))
+            self.logger.error("Job {} status error: {} ".format(remote_id, ex.message))
             return "ERROR"

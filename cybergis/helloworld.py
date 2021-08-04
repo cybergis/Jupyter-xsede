@@ -8,13 +8,31 @@ from .utils import get_logger
 
 logger = get_logger()
 
-HELLOWORLD_SBATCH_SCRIPT_TEMPLATE = \
+HELLOWORLD_SBATCH_SCRIPT_TEMPLATE_keeling = \
 '''#!/bin/bash
 
 #SBATCH --job-name=$job_name
 #SBATCH --ntasks=$ntasks
 #SBATCH --time=$walltime
 #SBATCH --partition=$partition
+
+## allocated hostnames
+echo "Compute node(s) assigned: $$SLURM_JOB_NODELIST"
+python helloworld.py $remote_model_folder_path/in.txt $remote_model_folder_path/output/out.txt
+
+cp slurm-$$SLURM_JOB_ID.out $remote_model_folder_path/output
+'''
+
+
+HELLOWORLD_SBATCH_SCRIPT_TEMPLATE_expanse = \
+'''#!/bin/bash
+
+#SBATCH --job-name=$job_name
+#SBATCH --ntasks=$ntasks
+#SBATCH --nodes=$nodes
+#SBATCH --time=$walltime
+#SBATCH --partition=$partition
+#SBATCH --account=TG-EAR190007
 
 ## allocated hostnames
 echo "Compute node(s) assigned: $$SLURM_JOB_NODELIST"
@@ -45,7 +63,7 @@ with open(out_path, "w") as fout:
 
 class HelloWorldKeelingSBatchScript(KeelingSBatchScript):
     file_name = "helloworld.sbatch"
-    SCRIPT_TEMPLATE = HELLOWORLD_SBATCH_SCRIPT_TEMPLATE
+    SCRIPT_TEMPLATE = HELLOWORLD_SBATCH_SCRIPT_TEMPLATE_keeling
 
 
 class HelloWorldUserScript(BaseScript):
@@ -74,7 +92,7 @@ class HelloWorldKeelingJob(SlurmJob):
 
 class HelloWorldCometSBatchScript(CometSBatchScript):
     file_name = "helloworld.sbatch"
-    SCRIPT_TEMPLATE = HELLOWORLD_SBATCH_SCRIPT_TEMPLATE
+    SCRIPT_TEMPLATE = HELLOWORLD_SBATCH_SCRIPT_TEMPLATE_expanse
 
 
 class HelloWorldCometJob(HelloWorldKeelingJob):
@@ -94,8 +112,8 @@ def submit(workspace, mode_source_folder_path, nodes, wtime,
     SBatchScriptClass = HelloWorldKeelingSBatchScript
     JobClass = HelloWorldKeelingJob
 
-    if hpc == "comet":
-        server_url = "comet.sdsc.edu"
+    if hpc == "comet" or hpc == "expanse":
+        server_url = "login.expanse.sdsc.edu"
         user_name = "cybergis"
         SBatchScriptClass = HelloWorldCometSBatchScript
         JobClass = HelloWorldCometJob

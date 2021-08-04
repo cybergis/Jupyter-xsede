@@ -1,4 +1,4 @@
-from .base import SBatchScript
+from .base import SBatchScript, BaseJob
 from .connection import SSHConnection
 from .job import SlurmJob
 from .keeling import KeelingSBatchScript, KeelingJob
@@ -32,8 +32,8 @@ class BaseSupervisorToHPC(object):
             for k, v in parameters.items():
                 if v == "undefined":
                     parameters[k] = None
-            self.logger.error("*" * 200)
-            self.logger.error("parameters: {}".format(parameters))
+            # self.logger.error("*" * 200)
+            # self.logger.error("parameters: {}".format(parameters))
         except:
             pass
         try:
@@ -80,16 +80,16 @@ class BaseSupervisorToHPC(object):
                     user_name=self.username,
                     user_pw=self.user_pw,
                 )
-        elif self.machine.lower() == "comet":
+        elif self.machine.lower() == "comet" or self.machine.lower() == "expanse":
             if self.username == "cybergis":
                 self.connection = SSHConnection(
-                    "comet.sdsc.edu",
+                    "login.expanse.sdsc.edu",
                     user_name="cybergis",
                     key_path=self.private_key_path,
                 )
             else:
                 self.connection = SSHConnection(
-                    "comet.sdsc.edu", user_name=self.username, user_pw=self.user_pw
+                    "login.expanse.sdsc.edu", user_name=self.username, user_pw=self.user_pw
                 )
         self.connection.login()
         return self
@@ -99,7 +99,7 @@ class BaseSupervisorToHPC(object):
         _SBatchScriptClass = self.__class__._KeelingSBatchScriptClass
         _JobClass = self.__class__._KeelingJobClass
 
-        if self.machine == "comet":
+        if self.machine == "comet" or self.machine == "expanse":
             _SBatchScriptClass = self.__class__._CometSBatchScriptClass
             _JobClass = self.__class__._CometJobClass
 
@@ -131,7 +131,7 @@ class BaseSupervisorToHPC(object):
         return return_dict
 
     def job_status(self, remote_id):
-        return SlurmJob.job_status_pbs(None, remote_id, self.connection)
+        return SlurmJob.job_status_sacct(BaseJob(), remote_id, self.connection)
 
     def download(
             self,
