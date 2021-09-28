@@ -14,6 +14,7 @@ RHESSys_SBATCH_SCRIPT_TEMPLATE_expanse = \
 
 #SBATCH --job-name=$job_name
 #SBATCH --ntasks=$ntasks
+#SBATCH --nodes=$nodes
 #SBATCH --time=$walltime
 #SBATCH --partition=$partition
 #SBATCH --account=TG-EAR190007
