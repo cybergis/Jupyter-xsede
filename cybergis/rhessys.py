@@ -9,7 +9,30 @@ from .connection import SSHConnection
 
 logger = get_logger()
 
-RHESSys_SBATCH_SCRIPT_TEMPLATE = \
+RHESSys_SBATCH_SCRIPT_TEMPLATE_expanse = \
+"""#!/bin/bash
+
+#SBATCH --job-name=$job_name
+#SBATCH --ntasks=$ntasks
+#SBATCH --time=$walltime
+#SBATCH --partition=$partition
+#SBATCH --account=TG-EAR190007
+#SBATCH --mem=24GB
+
+## allocated hostnames
+echo $$SLURM_JOB_NODELIST
+
+$module_config
+
+srun --mpi=pmi2 singularity exec -B $remote_job_folder_path:/workspace \
+   $remote_singularity_img_path \
+   python /workspace/runRHESSys.py
+
+cp slurm-$$SLURM_JOB_ID.out $remote_model_folder_path/model/output
+echo done
+"""
+
+RHESSys_SBATCH_SCRIPT_TEMPLATE_keeling = \
 """#!/bin/bash
 
 #SBATCH --job-name=$job_name
@@ -32,7 +55,7 @@ echo done
 
 class RHESSysKeelingSBatchScript(KeelingSBatchScript):
     file_name = "rhessys.sbatch"
-    SCRIPT_TEMPLATE = RHESSys_SBATCH_SCRIPT_TEMPLATE
+    SCRIPT_TEMPLATE = RHESSys_SBATCH_SCRIPT_TEMPLATE_keeling
 
     def __init__(self, walltime, ntasks,
                  *args, **kargs):
@@ -42,7 +65,7 @@ class RHESSysKeelingSBatchScript(KeelingSBatchScript):
 
 class RHESSysCometSBatchScript(CometSBatchScript):
     file_name = "rhessys.sbatch"
-    SCRIPT_TEMPLATE = RHESSys_SBATCH_SCRIPT_TEMPLATE
+    SCRIPT_TEMPLATE = RHESSys_SBATCH_SCRIPT_TEMPLATE_expanse
 
     def __init__(self, walltime, ntasks, *args, **kargs):
         super().__init__(walltime, ntasks, *args, **kargs)
