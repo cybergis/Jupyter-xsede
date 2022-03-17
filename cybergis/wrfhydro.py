@@ -286,7 +286,7 @@ class WRFHydroCometSBatchScript(CometSBatchScript):
         super().__init__(walltime, ntasks, *args, **kargs)
 
         self.remote_singularity_img_path = "/home/cybergis/SUMMA_IMAGE/wrfhydro_xenial.simg"
-        self.module_config = "module list && module load singularitypro/3.5 && module list"
+        self.module_config = "module list && module load singularitypro && module list"
 
 
 class WRFHydroCometJob(WRFHydroKeelingJob):
