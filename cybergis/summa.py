@@ -18,7 +18,7 @@ SUMMA_SBATCH_SCRIPT_TEMPLATE_expanse = \
 #SBATCH --time=$walltime
 #SBATCH --partition=$partition
 #SBATCH --account=TG-EAR190007
-#SBATCH --mem=24GB
+#SBATCH --mem-per-cpu=1GB
 
 ## allocated hostnames
 echo $$SLURM_JOB_NODELIST
@@ -33,6 +33,7 @@ srun --mpi=pmi2 singularity exec -B $remote_job_folder_path:/workspace \
 if [ -d "$remote_model_folder_path/output/regress_data" ] 
 then
     echo "!!!!!!!  Merging and KGE !!!!!!!!!!!!!" 
+    sleep 10
     singularity exec -B $remote_job_folder_path:/workspace \
       $remote_singularity_img_path \
       bash -c "pip install natsort && python /workspace/camels.py"
