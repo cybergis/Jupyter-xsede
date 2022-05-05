@@ -242,12 +242,15 @@ def sort_nc_files(folder_path):
     return sorted_list
 
 sorted_list = sort_nc_files(truth_path)
+print('!'*100)
+print("merging truth...")
 all_ds = [xr.open_dataset(f) for f in sorted_list]
 all_name = [n.split("_")[-2] for n in sorted_list]
 all_merged = xr.concat(all_ds, pd.Index(all_name, name="decision"))
 merged_truth_path = os.path.join(output_path, "merged_day/NLDAStruth_configs_latin.nc")
 all_merged.to_netcdf(merged_truth_path)
 print(merged_truth_path)
+print('!'*100)
 
 
 constant_path = os.path.join(output_path, "constant")
@@ -260,11 +263,14 @@ for f in sorted_list:
     ens_decisions.append(f.split("_")[-2])
 constant_vars= ['airpres','airtemp','LWRadAtm','pptrate','spechum','SWRadAtm','windspd']
 for v in constant_vars:
+    print('!'*100)
+    print("merging {}...".format(v))
     all_merged = xr.concat(all_ds[i:i+int(len(sorted_list)/7)], pd.Index(ens_decisions[i:i+int(len(sorted_list)/7)], name="decision"))
     merged_constant_path = os.path.join(output_path, 'merged_day/NLDASconstant_' + v +'_configs_latin.nc')
     all_merged.to_netcdf(merged_constant_path)
     print(merged_constant_path)
     i = i + int(len(sorted_list)/7)
+    print('!'*100)
 
 #### KGE ##########
 print("#################### KGE #########################")
